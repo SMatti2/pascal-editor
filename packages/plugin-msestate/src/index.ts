@@ -10,6 +10,6 @@ export const studioHostPanel: EditorHostPanel = {
   label: 'Studio',
   icon: { kind: 'svg', viewBox: '0 0 24 24', path: CAMERA_PATH },
   component: () => import('./studio-panel'),
-  description: 'Render della vista corrente: Gemini o Cycles, con la scena che mostrano.',
+  description: 'Render della vista corrente con Antigravity, legati alla scena e alla camera.',
   creator: { name: 'MS Estate' },
 }

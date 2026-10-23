@@ -2,7 +2,8 @@ import { emitter, type SnapshotCapturedEvent, useScene } from '@pascal-app/core'
 
 export type CaptureMode = 'standard' | 'viewport' | 'area'
 
-export type SavedCapture = { image: string; sidecar: string }
+/** A capture our server kept: its operation id and project-relative files. */
+export type SavedCapture = { id: string; image: string; sidecar: string }
 
 /** The scene a capture shows: the saved version and a hash of the graph as rendered. */
 export type SceneStamp = { id: string; version: number; sha256: string }
@@ -72,8 +73,9 @@ export async function saveCapture(
   scene: SceneStamp,
   mode: CaptureMode,
 ): Promise<SavedCapture> {
+  const id = crypto.randomUUID()
   const body = new FormData()
-  body.append('operation_id', crypto.randomUUID())
+  body.append('operation_id', id)
   body.append('scene_id', scene.id)
   body.append('scene_version', String(scene.version))
   body.append('scene_sha256', scene.sha256)
@@ -85,10 +87,10 @@ export async function saveCapture(
     body,
   })
   const result = (await response.json().catch(() => ({}))) as {
-    capture?: SavedCapture
+    capture?: Omit<SavedCapture, 'id'>
     error?: string
   }
   if (!response.ok || !result.capture)
     throw new Error(result.error ?? `Salvataggio non riuscito (${response.status})`)
-  return result.capture
+  return { id, ...result.capture }
 }

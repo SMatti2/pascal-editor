@@ -65,7 +65,12 @@ describe('saveCapture', () => {
     }) as typeof fetch
     try {
       const scene = { id: 'casa', version: 3, sha256: 'a'.repeat(64) }
-      await saveCapture({ blob: new Blob(['webp']), camera }, scene, 'viewport')
+      const saved = await saveCapture({ blob: new Blob(['webp']), camera }, scene, 'viewport')
+      expect(saved).toEqual({
+        id: sent[0]?.get('operation_id') as string,
+        image: 'i',
+        sidecar: 's',
+      })
       await saveCapture({ blob: new Blob(['webp']) }, scene, 'viewport')
     } finally {
       globalThis.fetch = realFetch
