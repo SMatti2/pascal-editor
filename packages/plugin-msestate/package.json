@@ -19,6 +19,7 @@
   "peerDependencies": {
     "@pascal-app/core": "*",
     "@pascal-app/editor": "*",
-    "react": "^19"
+    "react": "^19",
+    "@pascal-app/viewer": "*"
   }
 }
