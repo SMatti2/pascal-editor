@@ -1,4 +1,5 @@
 import { mintHostPanel, mintPlugin } from '@mint/pascal-plugin'
+import { studioHostPanel } from '@msestate/pascal-plugin'
 import {
   type AnyNodeDefinition,
   discoverPlugins,
@@ -128,6 +129,8 @@ extendPluginDiscovery(async () => {
 })
 extendPluginDiscovery(async () => [webXRPlugin])
 registerEditorHostPanel(webXRHostPanel)
+// MS Estate fork: our rail panels (packages/plugin-msestate).
+registerEditorHostPanel(studioHostPanel)
 
 loadBuiltinsSync()
 void loadExternalPlugins()

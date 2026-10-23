@@ -48,6 +48,7 @@ const nextConfig: NextConfig = {
     '@pascal-app/plugin-streetscape',
     '@pascal-app/plugin-trees',
     '@mint/pascal-plugin',
+    '@msestate/pascal-plugin',
     '@pascal-app/plugin-bones',
     '@webxr/plugin',
     '@pascal-app/plugin-environment',

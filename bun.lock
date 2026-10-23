@@ -31,6 +31,7 @@
       "dependencies": {
         "@iconify/react": "^6.0.3",
         "@mint/pascal-plugin": "github:mintdotgg/mint-pascal-plugin#902c546dbaece6b31455c0dc394afe6b9cd136fe",
+        "@msestate/pascal-plugin": "workspace:*",
         "@number-flow/react": "^0.6.2",
         "@pascal-app/core": "*",
         "@pascal-app/editor": "*",
@@ -324,6 +325,15 @@
         "react-dom": "^18 || ^19",
         "three": "^0.186",
         "zustand": "^5",
+      },
+    },
+    "packages/plugin-msestate": {
+      "name": "@msestate/pascal-plugin",
+      "version": "0.0.0",
+      "peerDependencies": {
+        "@pascal-app/core": "*",
+        "@pascal-app/editor": "*",
+        "react": "^19",
       },
     },
     "packages/typescript-config": {
@@ -653,6 +663,8 @@
     "@modelcontextprotocol/server": ["@modelcontextprotocol/server@2.3.1", "", { "dependencies": { "@modelcontextprotocol/core": "2.3.1", "zod": "^4.2.0" } }, "sha512-e59MfWuSssj6DoQ96JCTqdW1AXT5/XtnTl0WWd6MU1Ka434fFUGGosCLJbGNySDhHGvxQWoRWK137FXYFkYNWw=="],
 
     "@monogrid/gainmap-js": ["@monogrid/gainmap-js@3.4.0", "", { "dependencies": { "promise-worker-transferable": "^1.0.4" }, "peerDependencies": { "three": ">= 0.159.0" } }, "sha512-2Z0FATFHaoYJ8b+Y4y4Hgfn3FRFwuU5zRrk+9dFWp4uGAdHGqVEdP7HP+gLA3X469KXHmfupJaUbKo1b/aDKIg=="],
+
+    "@msestate/pascal-plugin": ["@msestate/pascal-plugin@workspace:packages/plugin-msestate"],
 
     "@napi-rs/wasm-runtime": ["@napi-rs/wasm-runtime@1.2.5", "", { "dependencies": { "@tybys/wasm-util": "^0.10.3" }, "peerDependencies": { "@emnapi/core": "^1.7.1 || ^2.0.0-alpha.4", "@emnapi/runtime": "^1.7.1 || ^2.0.0-alpha.4" } }, "sha512-HshSvXzmBxNzqejd3k/KemgQ3hdREUYFRRrgxOZ+gPljDIsO2SDZrVZMd4Z/HsxudQbE62OVyVFE8z9BCurfjA=="],
 
