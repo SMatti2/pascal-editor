@@ -6,13 +6,14 @@ import {
   type SnapshotCapturePose,
   type ThumbnailGenerateEvent,
 } from '@pascal-app/core'
-import { Euler, PerspectiveCamera, Quaternion, Vector3 } from 'three'
+import { Euler, OrthographicCamera, PerspectiveCamera, Quaternion, Vector3 } from 'three'
 import {
   applySnapshotCapturePose,
   captureSnapshotScene,
   createSnapshotQueue,
   deliverSnapshot,
   enqueueSnapshotCapture,
+  frameCamera,
   isOverlaySnapshotSave,
   runSnapshotCapture,
 } from './snapshot-capture'
@@ -477,5 +478,61 @@ describe('an ephemeral capture', () => {
       stored.push(frame)
     })
     expect(stored).toEqual([blob])
+  })
+})
+
+// A caller that renders the view again elsewhere (a path tracer) needs the camera behind the frame.
+describe('the camera behind a frame', () => {
+  const camera = new PerspectiveCamera(50, 1.5)
+  camera.position.set(1, 2, 3)
+  camera.lookAt(0, 0, 0)
+
+  test('a viewport frame reports the camera that drew it', () => {
+    const shot = frameCamera(camera, { captureMode: 'viewport' })
+    expect(shot?.projection).toBe('perspective')
+    expect(shot?.fov).toBe(50)
+    expect(shot?.position).toEqual([1, 2, 3])
+    expect(shot?.quaternion).toEqual(
+      camera.quaternion.toArray() as [number, number, number, number],
+    )
+  })
+
+  test('a cropped frame, or one whose pose the caller set, reports none', () => {
+    expect(frameCamera(camera, { captureMode: 'standard' })).toBeUndefined()
+    expect(frameCamera(camera, {})).toBeUndefined()
+    const cameraPose = {
+      position: [0, 0, 0],
+      quaternion: [0, 0, 0, 1],
+      fov: 40,
+    } as SnapshotCapturePose
+    expect(frameCamera(camera, { captureMode: 'viewport', cameraPose })).toBeUndefined()
+  })
+
+  test('an orthographic frame reports the height it shows', () => {
+    const ortho = new OrthographicCamera(-6, 6, 4, -4)
+    ortho.zoom = 2
+    expect(frameCamera(ortho, { captureMode: 'viewport' })).toMatchObject({
+      projection: 'orthographic',
+      viewHeight: 4,
+    })
+  })
+
+  test('it comes back with the ephemeral frame', async () => {
+    const received: SnapshotCapturedEvent[] = []
+    const onCaptured = (event: SnapshotCapturedEvent) => received.push(event)
+    emitter.on('snapshot:captured', onCaptured)
+    try {
+      const shot = frameCamera(camera, { captureMode: 'viewport' })
+      await deliverSnapshot(
+        { requestId: 'view-2', ephemeral: true },
+        new Blob(['frame']),
+        { position: [1, 2, 3] as [number, number, number], target: null },
+        () => {},
+        shot,
+      )
+      expect(received[0]?.camera).toEqual(shot)
+    } finally {
+      emitter.off('snapshot:captured', onCaptured)
+    }
   })
 })

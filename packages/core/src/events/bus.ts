@@ -227,6 +227,17 @@ export interface SnapshotCapturedEvent {
   width: number
   height: number
   presentation?: SceneViewPresentation
+  /** The camera that drew the frame, for a viewport capture (see `frameCamera`). */
+  camera?: SnapshotFrameCamera
+}
+
+/** A camera in world metres: vertical `fov` in degrees, or the visible `viewHeight` when orthographic. */
+export interface SnapshotFrameCamera {
+  position: [number, number, number]
+  quaternion: [number, number, number, number]
+  projection: 'perspective' | 'orthographic'
+  fov?: number
+  viewHeight?: number
 }
 
 export interface ThumbnailGenerateEvent {

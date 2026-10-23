@@ -50,6 +50,7 @@ export type {
   SnapshotCapturedEvent,
   SnapshotCaptureFailedEvent,
   SnapshotCapturePose,
+  SnapshotFrameCamera,
   SnapshotSavedEvent,
   SolarPanelEvent,
   SpawnEvent,

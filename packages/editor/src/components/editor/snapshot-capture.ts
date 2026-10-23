@@ -2,10 +2,11 @@ import {
   emitter,
   type SnapshotCaptureFailedEvent,
   type SnapshotCapturePose,
+  type SnapshotFrameCamera,
   type SnapshotSavedEvent,
   type ThumbnailGenerateEvent,
 } from '@pascal-app/core'
-import { MathUtils, type PerspectiveCamera } from 'three'
+import { MathUtils, OrthographicCamera, type PerspectiveCamera } from 'three'
 
 export function isOverlaySnapshotSave(event: SnapshotSavedEvent | undefined, projectId: string) {
   return !event?.requestId && (!event?.projectId || event.projectId === projectId)
@@ -146,6 +147,28 @@ export async function runSnapshotCapture(
 }
 
 /**
+ * The camera that drew an ephemeral frame, so its caller can draw the same view again. Only a
+ * viewport capture is the camera's whole view; a standard frame is centre-cropped and an area frame
+ * is off-axis, and a caller that passed `cameraPose` already knows its camera.
+ */
+export function frameCamera(
+  camera: PerspectiveCamera | OrthographicCamera,
+  event: Pick<ThumbnailGenerateEvent, 'captureMode' | 'cameraPose'>,
+): SnapshotFrameCamera | undefined {
+  if (event.captureMode !== 'viewport' || event.cameraPose) return undefined
+  const position = camera.position.toArray() as [number, number, number]
+  const quaternion = camera.quaternion.toArray() as [number, number, number, number]
+  return camera instanceof OrthographicCamera
+    ? {
+        position,
+        quaternion,
+        projection: 'orthographic',
+        viewHeight: (camera.top - camera.bottom) / camera.zoom,
+      }
+    : { position, quaternion, projection: 'perspective', fov: camera.fov }
+}
+
+/**
  * Where a captured frame goes: to the host, which stores it (a snapshot, the project's
  * thumbnail), or for an ephemeral capture straight back to its caller, stored nowhere.
  */
@@ -159,6 +182,7 @@ export function deliverSnapshot<
   blob: Blob,
   cameraData: T,
   onCapture: (blob: Blob, cameraData: T) => void | Promise<void>,
+  camera?: SnapshotFrameCamera,
 ): void | Promise<void> {
   // An ephemeral frame is never stored: with no caller to answer, it is dropped.
   if (event.ephemeral) {
@@ -169,6 +193,7 @@ export function deliverSnapshot<
         width: cameraData.resolution?.w ?? 0,
         height: cameraData.resolution?.h ?? 0,
         ...(cameraData.presentation ? { presentation: cameraData.presentation } : {}),
+        ...(camera ? { camera } : {}),
       })
     return
   }

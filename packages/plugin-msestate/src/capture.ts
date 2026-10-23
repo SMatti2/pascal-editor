@@ -68,7 +68,7 @@ export async function stampScene(sceneId: string): Promise<SceneStamp> {
 
 /** Send the frame to our server, which keeps it with the scene stamp (same origin, behind the proxy). */
 export async function saveCapture(
-  frame: Pick<SnapshotCapturedEvent, 'blob'>,
+  frame: Pick<SnapshotCapturedEvent, 'blob' | 'camera'>,
   scene: SceneStamp,
   mode: CaptureMode,
 ): Promise<SavedCapture> {
@@ -77,6 +77,7 @@ export async function saveCapture(
   body.append('scene_id', scene.id)
   body.append('scene_version', String(scene.version))
   body.append('scene_sha256', scene.sha256)
+  if (frame.camera) body.append('camera', JSON.stringify(frame.camera)) // the pose a renderer redraws
   body.append('mode', mode)
   body.append('file', frame.blob, 'capture') // the server reads the format from the bytes (Pascal sends WebP)
   const response = await fetch(`/api/projects/${encodeURIComponent(scene.id)}/pascal/captures`, {

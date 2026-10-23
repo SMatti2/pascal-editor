@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { emitter, type ThumbnailGenerateEvent } from '@pascal-app/core'
-import { requestFrame } from './capture'
+import { requestFrame, saveCapture } from './capture'
 
 describe('requestFrame', () => {
   test('asks for an ephemeral frame and takes only the answer to its own request', async () => {
@@ -46,5 +46,31 @@ describe('sceneIdFromPath', () => {
     expect(sceneIdFromPath('/project/casa%20bianca/')).toBe('casa bianca')
     expect(sceneIdFromPath('/')).toBeNull()
     expect(sceneIdFromPath('/project/a/b')).toBeNull()
+  })
+})
+
+describe('saveCapture', () => {
+  test('sends the camera behind the frame with the scene it shows', async () => {
+    const camera = {
+      position: [1, 2, 3] as [number, number, number],
+      quaternion: [0, 0, 0, 1] as [number, number, number, number],
+      projection: 'perspective' as const,
+      fov: 50,
+    }
+    const sent: FormData[] = []
+    const realFetch = globalThis.fetch
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      sent.push(init.body as FormData)
+      return Response.json({ capture: { image: 'i', sidecar: 's' } }, { status: 201 })
+    }) as typeof fetch
+    try {
+      const scene = { id: 'casa', version: 3, sha256: 'a'.repeat(64) }
+      await saveCapture({ blob: new Blob(['webp']), camera }, scene, 'viewport')
+      await saveCapture({ blob: new Blob(['webp']) }, scene, 'viewport')
+    } finally {
+      globalThis.fetch = realFetch
+    }
+    expect(JSON.parse(sent[0]?.get('camera') as string)).toEqual(camera)
+    expect(sent[1]?.get('camera')).toBeNull()
   })
 })
