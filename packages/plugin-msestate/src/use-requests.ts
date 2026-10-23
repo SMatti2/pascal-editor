@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { errorMessage } from './http'
 import { listRequests, type RenderRequest } from './requests'
 
 const POLL_MS = 5000
@@ -14,7 +15,7 @@ export function useRequests(sceneId: string | null) {
       setRequests(await listRequests(sceneId))
       setError(null)
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : String(failure))
+      setError(errorMessage(failure))
     }
   }, [sceneId])
 

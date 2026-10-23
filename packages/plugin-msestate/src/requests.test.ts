@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { copyWhenReady, createRequest, listRequests, thumbnailUrl } from './requests'
+import { thumbnailUrl } from './http'
+import { copyWhenReady, createRequest, listRequests } from './requests'
 
 const realFetch = globalThis.fetch
 afterEach(() => {
@@ -19,17 +20,19 @@ describe('render requests', () => {
   test('a request is posted as JSON for the scene and comes back prepared', async () => {
     const prepared = { id: 'r1', prompt: 'p', instructions: 'i' }
     const calls = answer(201, { request: prepared })
-    expect(await createRequest('casa bianca', 'cap-1', 'luce calda')).toEqual(prepared)
+    const oak = { relative: 'refs/rovere.png', role: 'material' as const, target: 'pavimento' }
+    expect(await createRequest('casa bianca', 'cap-1', 'luce calda', [oak])).toEqual(prepared)
     expect(calls[0]?.url).toBe('/api/projects/casa%20bianca/pascal/requests')
     expect(JSON.parse(calls[0]?.init?.body as string)).toEqual({
       capture: 'cap-1',
       appearance: 'luce calda',
+      references: [oak],
     })
   })
 
   test("the server's refusal is the error shown", async () => {
     answer(404, { error: 'Cattura non trovata' })
-    await expect(createRequest('casa', 'x', '')).rejects.toThrow('Cattura non trovata')
+    await expect(createRequest('casa', 'x', '', [])).rejects.toThrow('Cattura non trovata')
     answer(500, {})
     await expect(listRequests('casa')).rejects.toThrow('Richieste non disponibili (500)')
   })

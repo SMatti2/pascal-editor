@@ -1,4 +1,5 @@
-import { type RenderRequest, thumbnailUrl } from './requests'
+import { thumbnailUrl } from './http'
+import type { RenderRequest } from './requests'
 
 const time = (iso: string) =>
   new Date(iso).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })
@@ -12,6 +13,8 @@ export function RequestList({ sceneId, requests }: { sceneId: string; requests: 
         <li className="flex flex-col gap-1" key={request.id}>
           <p className="text-sidebar-foreground/60 text-xs">
             {time(request.created_at)} · {request.id.slice(0, 8)}
+            {request.references.length > 0 &&
+              ` · ${request.references.length} ${request.references.length === 1 ? 'riferimento' : 'riferimenti'}`}
             {request.results.length === 0 && ' · in attesa di Antigravity'}
           </p>
           {request.appearance && <p className="line-clamp-2 text-xs">{request.appearance}</p>}

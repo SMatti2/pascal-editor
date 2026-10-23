@@ -1,4 +1,5 @@
 import { emitter, type SnapshotCapturedEvent, useScene } from '@pascal-app/core'
+import { projectApi, replyOf } from './http'
 
 export type CaptureMode = 'standard' | 'viewport' | 'area'
 
@@ -82,15 +83,10 @@ export async function saveCapture(
   if (frame.camera) body.append('camera', JSON.stringify(frame.camera)) // the pose a renderer redraws
   body.append('mode', mode)
   body.append('file', frame.blob, 'capture') // the server reads the format from the bytes (Pascal sends WebP)
-  const response = await fetch(`/api/projects/${encodeURIComponent(scene.id)}/pascal/captures`, {
-    method: 'POST',
-    body,
-  })
-  const result = (await response.json().catch(() => ({}))) as {
-    capture?: Omit<SavedCapture, 'id'>
-    error?: string
-  }
-  if (!response.ok || !result.capture)
-    throw new Error(result.error ?? `Salvataggio non riuscito (${response.status})`)
-  return { id, ...result.capture }
+  const response = await fetch(`${projectApi(scene.id)}/pascal/captures`, { method: 'POST', body })
+  const { capture } = await replyOf<{ capture: Omit<SavedCapture, 'id'> }>(
+    response,
+    'Salvataggio non riuscito',
+  )
+  return { id, ...capture }
 }

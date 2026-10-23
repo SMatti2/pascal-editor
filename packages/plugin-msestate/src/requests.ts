@@ -1,44 +1,46 @@
+import { projectApi, replyOf } from './http'
+
 /** A render request our server froze for Antigravity, with the results saved beside it. */
 export type RenderRequest = {
   id: string
   created_at: string
   capture: string
   appearance: string
+  references: { path: string; role: ReferenceChoice['role']; target?: string }[]
   results: string[]
 }
 
 export type PreparedRequest = { id: string; prompt: string; instructions: string }
 
-const api = (sceneId: string) => `/api/projects/${encodeURIComponent(sceneId)}/pascal/requests`
-
-async function json<T>(response: Response, fallback: string): Promise<T> {
-  const body = (await response.json().catch(() => ({}))) as T & { error?: string }
-  if (!response.ok) throw new Error(body.error ?? `${fallback} (${response.status})`)
-  return body
+/** A reference picked for a request: mood (`appearance`) or a finish for one named target (`material`). */
+export type ReferenceChoice = {
+  relative: string
+  role: 'appearance' | 'material'
+  target?: string
 }
+
+const api = (sceneId: string) => `${projectApi(sceneId)}/pascal/requests`
 
 /** Freeze a request from a saved capture; the server writes the prompt and the instructions. */
 export async function createRequest(
   sceneId: string,
   capture: string,
   appearance: string,
+  references: ReferenceChoice[],
 ): Promise<PreparedRequest> {
   const response = await fetch(api(sceneId), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ capture, appearance }),
+    body: JSON.stringify({ capture, appearance, references }),
   })
-  return (await json<{ request: PreparedRequest }>(response, 'Richiesta non creata')).request
+  return (await replyOf<{ request: PreparedRequest }>(response, 'Richiesta non creata')).request
 }
 
 export async function listRequests(sceneId: string): Promise<RenderRequest[]> {
   const response = await fetch(api(sceneId), { cache: 'no-store' })
-  return (await json<{ requests: RenderRequest[] }>(response, 'Richieste non disponibili')).requests
+  return (await replyOf<{ requests: RenderRequest[] }>(response, 'Richieste non disponibili'))
+    .requests
 }
-
-/** A project image through our server's thumbnail route (192, 384 or 768 px wide). */
-export const thumbnailUrl = (sceneId: string, path: string, width: 192 | 384 | 768) =>
-  `/api/projects/${encodeURIComponent(sceneId)}/thumbnails?${new URLSearchParams({ path, width: String(width) })}`
 
 /**
  * Copy text that is still being fetched. The promise goes into the ClipboardItem so the copy
