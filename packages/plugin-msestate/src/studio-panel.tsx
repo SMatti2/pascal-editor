@@ -2,69 +2,40 @@
 
 import { useViewer } from '@pascal-app/viewer'
 import { useState } from 'react'
+import { AntigravitySection } from './antigravity-section'
 import {
+  hiddenLevels,
   requestFrame,
   type SavedCapture,
   saveCapture,
   sceneIdFromPath,
   stampScene,
 } from './capture'
-import { errorMessage, thumbnailUrl } from './http'
-import { ReferencePicker } from './reference-picker'
-import { RequestList } from './request-list'
-import { copyWhenReady, createRequest, type ReferenceChoice } from './requests'
-import { useRequests } from './use-requests'
-
-type Step =
-  | { kind: 'idle' }
-  | { kind: 'busy'; label: string }
-  | { kind: 'copied' }
-  | { kind: 'error'; message: string }
-
-const APPEARANCE_MAX = 4000
+import { CyclesSection } from './cycles-section'
+import { thumbnailUrl } from './http'
+import { useStep } from './use-step'
 
 /**
- * The Studio rail panel: capture the current view, then hand it to Antigravity with an
- * optional appearance brief and reference images. Results saved in the request's folder appear below by themselves.
+ * The Studio rail panel: capture the current view (scene version and camera kept with it), then
+ * hand it to Antigravity or redraw it in Cycles. Results saved for either appear by themselves.
  */
 export default function StudioPanel() {
   const projectId = useViewer((s) => s.projectId)
   const sceneId = typeof window === 'undefined' ? null : sceneIdFromPath(window.location.pathname)
   const [capture, setCapture] = useState<SavedCapture | null>(null)
-  const [appearance, setAppearance] = useState('')
-  const [references, setReferences] = useState<ReferenceChoice[]>([])
-  const [step, setStep] = useState<Step>({ kind: 'idle' })
-  const { requests, error: listError, refresh } = useRequests(sceneId)
-  const busy = step.kind === 'busy'
+  const { busy, run, line } = useStep()
 
-  const captureView = async () => {
-    if (!projectId || !sceneId) return
-    setStep({ kind: 'busy', label: 'Cattura in corso…' })
-    try {
+  const captureView = () =>
+    run('Cattura in corso…', async () => {
+      if (!projectId || !sceneId) return
       const scene = await stampScene(sceneId)
+      const hidden = hiddenLevels() // as shown when the frame is taken
       const frame = await requestFrame(projectId, 'viewport')
-      setCapture(await saveCapture(frame, scene, 'viewport'))
-      setStep({ kind: 'idle' })
-    } catch (error) {
-      setStep({ kind: 'error', message: errorMessage(error) })
-    }
-  }
-
-  const handOff = async () => {
-    if (!sceneId || !capture) return
-    setStep({ kind: 'busy', label: 'Preparo la richiesta…' })
-    const request = createRequest(sceneId, capture.id, appearance, references)
-    try {
-      await copyWhenReady(request.then((prepared) => prepared.instructions))
-      setStep({ kind: 'copied' })
-    } catch (error) {
-      setStep({ kind: 'error', message: errorMessage(error) })
-    }
-    void refresh()
-  }
+      setCapture(await saveCapture(frame, scene, 'viewport', hidden))
+    })
 
   return (
-    <div className="flex flex-col gap-3 p-4 text-sidebar-foreground">
+    <div className="flex flex-col gap-4 p-4 text-sidebar-foreground">
       <h2 className="font-semibold text-base">Studio</h2>
       <button
         className="rounded-md bg-sidebar-accent px-3 py-2 font-medium text-sm disabled:opacity-50"
@@ -74,43 +45,16 @@ export default function StudioPanel() {
       >
         {capture ? 'Cattura di nuovo' : 'Cattura vista'}
       </button>
+      {line}
       {capture && sceneId && (
-        <>
-          <img
-            alt="Vista catturata"
-            className="w-full rounded"
-            src={thumbnailUrl(sceneId, capture.image, 384)}
-          />
-          <label className="flex flex-col gap-1 text-xs">
-            Aspetto (facoltativo): finiture, luce, atmosfera
-            <textarea
-              className="min-h-20 rounded-md border border-sidebar-border bg-transparent p-2 text-sm"
-              maxLength={APPEARANCE_MAX}
-              onChange={(event) => setAppearance(event.target.value)}
-              value={appearance}
-            />
-          </label>
-          <ReferencePicker chosen={references} onChange={setReferences} sceneId={sceneId} />
-          <button
-            className="rounded-md bg-primary px-3 py-2 font-medium text-primary-foreground text-sm disabled:opacity-50"
-            disabled={busy}
-            onClick={handOff}
-            type="button"
-          >
-            Copia istruzioni per Antigravity
-          </button>
-        </>
+        <img
+          alt="Vista catturata"
+          className="w-full rounded"
+          src={thumbnailUrl(sceneId, capture.image, 384)}
+        />
       )}
-      {step.kind === 'busy' && <p className="text-sidebar-foreground/70 text-xs">{step.label}</p>}
-      {step.kind === 'copied' && (
-        <p className="text-sidebar-foreground/70 text-xs">
-          Istruzioni copiate. Incollale in Antigravity con il repository msestate aperto: il
-          risultato compare qui sotto.
-        </p>
-      )}
-      {step.kind === 'error' && <p className="text-destructive text-xs">{step.message}</p>}
-      {listError && <p className="text-destructive text-xs">{listError}</p>}
-      {sceneId && <RequestList requests={requests} sceneId={sceneId} />}
+      {sceneId && <AntigravitySection capture={capture} sceneId={sceneId} />}
+      {sceneId && <CyclesSection capture={capture} sceneId={sceneId} />}
     </div>
   )
 }

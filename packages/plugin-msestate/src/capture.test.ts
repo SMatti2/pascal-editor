@@ -65,7 +65,9 @@ describe('saveCapture', () => {
     }) as typeof fetch
     try {
       const scene = { id: 'casa', version: 3, sha256: 'a'.repeat(64) }
-      const saved = await saveCapture({ blob: new Blob(['webp']), camera }, scene, 'viewport')
+      const saved = await saveCapture({ blob: new Blob(['webp']), camera }, scene, 'viewport', [
+        'level_p1',
+      ])
       expect(saved).toEqual({
         id: sent[0]?.get('operation_id') as string,
         image: 'i',
@@ -77,5 +79,44 @@ describe('saveCapture', () => {
     }
     expect(JSON.parse(sent[0]?.get('camera') as string)).toEqual(camera)
     expect(sent[1]?.get('camera')).toBeNull()
+    expect(JSON.parse(sent[0]?.get('hidden_levels') as string)).toEqual(['level_p1'])
+    expect(JSON.parse(sent[1]?.get('hidden_levels') as string)).toEqual([])
+  })
+})
+
+describe('hiddenLevels', () => {
+  test('follows the viewer: levels above the selected floor and author-hidden ones are out', async () => {
+    const { useScene } = await import('@pascal-app/core')
+    const { useViewer } = await import('@pascal-app/viewer')
+    const { hiddenLevels } = await import('./capture')
+    const level = (id: string, index: number, visible = true) => ({
+      id,
+      type: 'level',
+      level: index,
+      visible,
+    })
+    const nodes = {
+      level_pt: level('level_pt', 0),
+      level_p1: level('level_p1', 1),
+      level_p2: level('level_p2', 2),
+      level_cantina: level('level_cantina', -1, false),
+    }
+    const scene = useScene.getState()
+    const viewer = useViewer.getState()
+    useScene.setState({ nodes } as never)
+    useViewer.setState({
+      levelMode: 'stacked',
+      hideLevelsAboveSelection: true,
+      selection: { ...viewer.selection, levelId: 'level_pt' },
+      levelsRevealing: [],
+    } as never)
+    try {
+      expect(hiddenLevels().sort()).toEqual(['level_cantina', 'level_p1', 'level_p2'])
+      useViewer.setState({ selection: { ...viewer.selection, levelId: null } } as never)
+      expect(hiddenLevels()).toEqual(['level_cantina'])
+    } finally {
+      useScene.setState(scene)
+      useViewer.setState(viewer)
+    }
   })
 })

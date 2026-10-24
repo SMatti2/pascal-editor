@@ -1,4 +1,5 @@
-import { emitter, type SnapshotCapturedEvent, useScene } from '@pascal-app/core'
+import { emitter, type LevelNode, type SnapshotCapturedEvent, useScene } from '@pascal-app/core'
+import { resolveLevelVisibility, useViewer } from '@pascal-app/viewer'
 import { projectApi, replyOf } from './http'
 
 export type CaptureMode = 'standard' | 'viewport' | 'area'
@@ -54,6 +55,34 @@ export function requestFrame(projectId: string, mode: CaptureMode): Promise<Snap
   })
 }
 
+/**
+ * The levels the camera does not see right now, by the viewer's own rule: hidden by the author,
+ * by solo mode, or above the selected floor (those stay in the shadow map only). A renderer drops
+ * them so it draws what the capture shows; the GLB export keeps every level.
+ */
+export function hiddenLevels(): string[] {
+  const levels = Object.values(useScene.getState().nodes).filter(
+    (node): node is LevelNode => node.type === 'level',
+  )
+  const { levelMode, hideLevelsAboveSelection, selection, levelsRevealing } = useViewer.getState()
+  const selectedIndex = levels.find((level) => level.id === selection.levelId)?.level
+  return levels
+    .filter((level) => {
+      const { visible, shadowOnly } = resolveLevelVisibility({
+        levelMode,
+        hideAbove: hideLevelsAboveSelection,
+        hasSelectedLevel: Boolean(selection.levelId),
+        isSelected: level.id === selection.levelId,
+        index: level.level,
+        selectedIndex,
+        nodeVisible: level.visible !== false,
+        revealing: levelsRevealing.includes(level.id),
+      })
+      return !visible || shadowOnly
+    })
+    .map((level) => level.id)
+}
+
 async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
@@ -73,6 +102,7 @@ export async function saveCapture(
   frame: Pick<SnapshotCapturedEvent, 'blob' | 'camera'>,
   scene: SceneStamp,
   mode: CaptureMode,
+  hidden: string[] = [],
 ): Promise<SavedCapture> {
   const id = crypto.randomUUID()
   const body = new FormData()
@@ -81,6 +111,7 @@ export async function saveCapture(
   body.append('scene_version', String(scene.version))
   body.append('scene_sha256', scene.sha256)
   if (frame.camera) body.append('camera', JSON.stringify(frame.camera)) // the pose a renderer redraws
+  body.append('hidden_levels', JSON.stringify(hidden))
   body.append('mode', mode)
   body.append('file', frame.blob, 'capture') // the server reads the format from the bytes (Pascal sends WebP)
   const response = await fetch(`${projectApi(scene.id)}/pascal/captures`, { method: 'POST', body })

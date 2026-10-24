@@ -388,6 +388,7 @@ export {
   EXPLODED_GAP,
   getLevelPresentationY,
   presentLevelsForCapture,
+  resolveLevelVisibility,
   snapLevelsToTruePositions,
 } from './systems/level/level-utils'
 export { getRoofMaterialArray, levelWallCladdingRef } from './systems/roof/roof-materials'

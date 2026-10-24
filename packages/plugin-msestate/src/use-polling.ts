@@ -1,23 +1,25 @@
 import { useCallback, useEffect, useState } from 'react'
 import { errorMessage } from './http'
-import { listRequests, type RenderRequest } from './requests'
 
 const POLL_MS = 5000
 
-/** The scene's render requests, polled while the panel is open: Antigravity's results appear by themselves. */
-export function useRequests(sceneId: string | null) {
-  const [requests, setRequests] = useState<RenderRequest[]>([])
+/**
+ * A server list polled while the panel is open, so results saved by Antigravity or Blender appear
+ * by themselves. `load` must be stable (useCallback); null loads nothing.
+ */
+export function usePolling<T>(load: (() => Promise<T[]>) | null) {
+  const [items, setItems] = useState<T[]>([])
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
-    if (!sceneId) return
+    if (!load) return
     try {
-      setRequests(await listRequests(sceneId))
+      setItems(await load())
       setError(null)
     } catch (failure) {
       setError(errorMessage(failure))
     }
-  }, [sceneId])
+  }, [load])
 
   useEffect(() => {
     void refresh()
@@ -25,5 +27,5 @@ export function useRequests(sceneId: string | null) {
     return () => clearInterval(timer)
   }, [refresh])
 
-  return { requests, error, refresh }
+  return { items, error, refresh }
 }
