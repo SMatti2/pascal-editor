@@ -38,7 +38,12 @@ const STATUS: Record<CyclesRender['status'], string> = {
 export const renderEntry = (render: CyclesRender): ResultEntry => ({
   id: render.id,
   when: render.created_at,
-  notes: [`${render.width}×${render.height}`, `${render.samples} campioni`, STATUS[render.status]],
+  notes: [
+    `${render.width}×${render.height}`,
+    `${render.samples} campioni`,
+    render.sun_at ? `sole ${render.sun_at.replace('T', ' ')}` : 'luce neutra',
+    STATUS[render.status],
+  ],
   text: render.error,
   images: render.result ? [{ path: render.result, alt: 'Render Cycles' }] : [],
 })

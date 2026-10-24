@@ -28,10 +28,17 @@ test('a Cycles job shows size, samples and status; a failure shows its error', (
     width: 1920,
     height: 1080,
     samples: 128,
+    sun_at: null,
     status: 'running' as const,
     result: null,
   }
-  expect(renderEntry(job).notes).toEqual(['1920×1080', '128 campioni', 'Blender al lavoro…'])
+  expect(renderEntry(job).notes).toEqual([
+    '1920×1080',
+    '128 campioni',
+    'luce neutra',
+    'Blender al lavoro…',
+  ])
+  expect(renderEntry({ ...job, sun_at: '2026-06-21T10:00' }).notes[2]).toBe('sole 2026-06-21 10:00')
   expect(renderEntry({ ...job, status: 'failed', error: 'import failed' })).toMatchObject({
     text: 'import failed',
     images: [],

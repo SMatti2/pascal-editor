@@ -9,6 +9,7 @@ export type CyclesRender = {
   width: number
   height: number
   samples: number
+  sun_at: string | null
   status: 'queued' | 'running' | 'done' | 'failed'
   error?: string
   result: string | null
@@ -25,10 +26,14 @@ export async function exportGlb(): Promise<Blob> {
   return artifact.blob
 }
 
-/** Queue a Cycles render of a saved capture with the model exported now. */
-export async function startRender(sceneId: string, capture: string, glb: Blob) {
+/**
+ * Queue a Cycles render of a saved capture with the model exported now. `sunAt` (local
+ * `YYYY-MM-DDTHH:MM`) asks for the real sun at the project's place; none keeps neutral daylight.
+ */
+export async function startRender(sceneId: string, capture: string, glb: Blob, sunAt = '') {
   const body = new FormData()
   body.append('capture', capture)
+  if (sunAt) body.append('sun_at', sunAt)
   body.append('file', glb, 'scene.glb')
   const response = await fetch(api(sceneId), { method: 'POST', body })
   return (await replyOf<{ render: { id: string } }>(response, 'Render non avviato')).render

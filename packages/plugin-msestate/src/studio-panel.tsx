@@ -3,14 +3,7 @@
 import { useViewer } from '@pascal-app/viewer'
 import { useState } from 'react'
 import { AntigravitySection } from './antigravity-section'
-import {
-  hiddenLevels,
-  requestFrame,
-  type SavedCapture,
-  saveCapture,
-  sceneIdFromPath,
-  stampScene,
-} from './capture'
+import { captureView, type SavedCapture, sceneIdFromPath } from './capture'
 import { CyclesSection } from './cycles-section'
 import { thumbnailUrl } from './http'
 import { useStep } from './use-step'
@@ -25,13 +18,9 @@ export default function StudioPanel() {
   const [capture, setCapture] = useState<SavedCapture | null>(null)
   const { busy, run, line } = useStep()
 
-  const captureView = () =>
+  const takeCapture = () =>
     run('Cattura in corso…', async () => {
-      if (!projectId || !sceneId) return
-      const scene = await stampScene(sceneId)
-      const hidden = hiddenLevels() // as shown when the frame is taken
-      const frame = await requestFrame(projectId, 'viewport')
-      setCapture(await saveCapture(frame, scene, 'viewport', hidden))
+      if (projectId && sceneId) setCapture(await captureView(projectId, sceneId))
     })
 
   return (
@@ -40,7 +29,7 @@ export default function StudioPanel() {
       <button
         className="rounded-md bg-sidebar-accent px-3 py-2 font-medium text-sm disabled:opacity-50"
         disabled={!projectId || !sceneId || busy}
-        onClick={captureView}
+        onClick={takeCapture}
         type="button"
       >
         {capture ? 'Cattura di nuovo' : 'Cattura vista'}
