@@ -428,20 +428,22 @@ function calculateJunctionIntersections(
     }
   }
 
-  if (connectedWalls.some(({ wall }) => wall.justification !== undefined)) {
-    const host = connectedWalls.find(({ endType }) => endType === 'passthrough')
+  const host = connectedWalls.find(({ endType }) => endType === 'passthrough')
+  const justified = connectedWalls.some(({ wall }) => wall.justification !== undefined)
+  if (host || justified) {
     for (const entry of connectedWalls) {
       if (entry.endType === 'passthrough') continue
       const edges = wallIntersections.get(entry.wall.id)
       if (!edges) continue
       if (host && edges.left && edges.right) {
         // Both edges already meet the host's near face. Closing through the
-        // reference vertex would add a triangular sliver inside the host.
+        // reference vertex would add a triangular sliver inside the host: two
+        // coplanar tops, black specks in a path-traced render.
         edges.closing = {
           x: (edges.left.x + edges.right.x) / 2,
           y: (edges.left.y + edges.right.y) / 2,
         }
-      } else if (connectedWalls.length === 2) {
+      } else if (justified && connectedWalls.length === 2) {
         const other = connectedWalls.find((candidate) => candidate !== entry)!
         if (other.endType === 'passthrough') continue
         const bodyLine = (candidate: typeof entry) => {

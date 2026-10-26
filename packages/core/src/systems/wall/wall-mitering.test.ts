@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { WallNode } from '../../schema'
+import { getWallPlanFootprint } from './wall-footprint'
 import { calculateLevelMiters, getWallMiterBoundaryPoints, pointToKey } from './wall-mitering'
 
 function wall(id: string, start: [number, number], end: [number, number]): WallNode {
@@ -127,5 +128,63 @@ describe('junction grid prefilter', () => {
 
     const junction = calculateLevelMiters([long, spur]).junctions.get(pointToKey({ x: 60, y: 0 }))
     expect(junction?.connectedWalls.map((cw) => cw.wall.id)).toEqual(['spur', 'long'])
+  })
+})
+
+describe('wall ends stop at the face they meet', () => {
+  // A wall whose end both edges meet another wall's face must close flat on that
+  // face. Closing through the junction point pokes a triangle into the other wall:
+  // two coplanar tops, which a path tracer renders as black specks.
+  function inside(p: { x: number; y: number }, polygon: { x: number; y: number }[]) {
+    let hit = false
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const a = polygon[i]!
+      const b = polygon[j]!
+      if (a.y > p.y !== b.y > p.y && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x)
+        hit = !hit
+    }
+    return hit
+  }
+  // Strictly inside: points on the shared miter line do not count.
+  function deepInside(p: { x: number; y: number }, polygon: { x: number; y: number }[]) {
+    const nearEdge = polygon.some((a, i) => {
+      const b = polygon[(i + 1) % polygon.length]!
+      const t = Math.max(
+        0,
+        Math.min(
+          1,
+          ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) /
+            ((b.x - a.x) ** 2 + (b.y - a.y) ** 2),
+        ),
+      )
+      return Math.hypot(p.x - a.x - t * (b.x - a.x), p.y - a.y - t * (b.y - a.y)) < 1e-6
+    })
+    return !nearEdge && inside(p, polygon)
+  }
+  function pokes(walls: WallNode[], into: string, from: string) {
+    const miter = calculateLevelMiters(walls)
+    const host = getWallPlanFootprint(walls.find((w) => w.id === into)!, miter)
+    const other = getWallPlanFootprint(walls.find((w) => w.id === from)!, miter)
+    return other.some((p) => deepInside(p, host))
+  }
+  const thick = (w: WallNode, thickness: number) => ({ ...w, thickness }) as WallNode
+
+  test('a wall ending on the middle of another (T)', () => {
+    const walls = [wall('host', [0, 0], [4, 0]), wall('stem', [2, 0], [2, 3])]
+    expect(pokes(walls, 'host', 'stem')).toBe(false)
+  })
+
+  test('a thin wall ending on the end of a thick one', () => {
+    const walls = [
+      thick(wall('spine', [0, 3], [0, 0]), 0.8),
+      thick(wall('thin', [0, 0], [3, 0]), 0.15),
+    ]
+    expect(pokes(walls, 'spine', 'thin')).toBe(false)
+  })
+
+  test('an even corner keeps its miter', () => {
+    const walls = [wall('A', [0, 0], [3, 0]), wall('B', [0, 0], [0, 3])]
+    expect(pokes(walls, 'A', 'B')).toBe(false)
+    expect(pokes(walls, 'B', 'A')).toBe(false)
   })
 })
