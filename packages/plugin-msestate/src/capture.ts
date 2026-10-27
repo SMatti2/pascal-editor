@@ -63,3 +63,10 @@ export async function captureView(projectId: string, sceneId: string): Promise<S
   const hidden = hiddenLevels()
   return saveCapture(await requestFrame(projectId), scene, hidden)
 }
+
+/** The project's newest capture, so the Foto panel reopens on it; null before the first. */
+export async function latestCapture(sceneId: string): Promise<SavedCapture | null> {
+  const response = await fetch(`${projectApi(sceneId)}/pascal/captures`, { cache: 'no-store' })
+  return (await replyOf<{ capture: SavedCapture | null }>(response, 'Cattura non disponibile'))
+    .capture
+}

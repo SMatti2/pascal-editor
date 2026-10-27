@@ -6,13 +6,29 @@ import { NOTE_KINDS } from './notes'
 const CAMERA_PATH =
   'M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3zM12 17a4 4 0 1 1 0-8 4 4 0 0 1 0 8z'
 
-/** Studio: renders of the current view, recorded with the scene they show. */
-export const studioHostPanel: EditorHostPanel = {
-  id: 'msestate:studio',
-  label: 'Studio',
+/** Foto: the current view made a photo with Antigravity or Blender, every photo of the project below. */
+export const fotoHostPanel: EditorHostPanel = {
+  id: 'msestate:studio', // kept from the Studio panel it replaces, so projects keep it installed
+  label: 'Foto',
   icon: { kind: 'svg', viewBox: '0 0 24 24', path: CAMERA_PATH },
-  component: () => import('./studio-panel'),
-  description: 'Render della vista corrente con Antigravity, legati alla scena e alla camera.',
+  component: () => import('./foto-panel'),
+  description: 'Foto realistiche della vista corrente, con Antigravity o Blender.',
+  creator: { name: 'MS Estate' },
+}
+
+/**
+ * A floor plan, filled: the outer wall frame (clockwise) with the rooms cut out
+ * (counter-clockwise), one inner wall with a door gap.
+ */
+const PLAN_PATH = 'M3 3h18v18H3z M5 5v14h6v-4h2v4h6V5h-6v6h-2V5z'
+
+/** Pianta: the scene drawn now as our 1:50 dimensioned plan, SVG and DXF. */
+export const piantaHostPanel: EditorHostPanel = {
+  id: 'msestate:pianta',
+  label: 'Pianta',
+  icon: { kind: 'svg', viewBox: '0 0 24 24', path: PLAN_PATH },
+  component: () => import('./pianta-panel'),
+  description: 'La pianta quotata 1:50 del modello com’è adesso, in SVG e DXF.',
   creator: { name: 'MS Estate' },
 }
 
