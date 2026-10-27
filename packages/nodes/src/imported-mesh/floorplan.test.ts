@@ -42,10 +42,27 @@ describe('buildImportedMeshFloorplan', () => {
     )
   })
 
+  test('the outline is drawn in plan metres, so it shows at any zoom', () => {
+    const plan = buildImportedMeshFloorplan(diamond(0), ctxFor(false))
+    expect(plan?.kind === 'polygon' && [plan.strokeWidth, plan.vectorEffect]).toEqual([
+      0.02,
+      undefined,
+    ])
+  })
+
   test('on a sheet: plan ink outline on the floor, nothing above the cut', () => {
     const floor = buildImportedMeshFloorplan(diamond(0), ctxFor(true))
     expect(floor?.kind === 'polygon' && [floor.fill, floor.stroke]).toEqual(['none', '#111827'])
     expect(buildImportedMeshFloorplan(diamond(1.5), ctxFor(true))).toBeNull()
+  })
+
+  test('a flat mesh is a floor finish: no plan shape, live or on a sheet', () => {
+    const floor = diamond(0)
+    floor.primitives[0]!.positions = floor.primitives[0]!.positions.map((v, i) =>
+      i % 3 === 1 ? 0.002 : v,
+    )
+    expect(buildImportedMeshFloorplan(floor, ctxFor(false))).toBeNull()
+    expect(buildImportedMeshFloorplan(floor, ctxFor(true))).toBeNull()
   })
 
   test('the live view shows a mesh above the cut dashed, still there to select', () => {
