@@ -6,11 +6,13 @@ import { AntigravitySection } from './antigravity-section'
 import { captureView, type SavedCapture, sceneIdFromPath } from './capture'
 import { CyclesSection } from './cycles-section'
 import { thumbnailUrl } from './http'
+import { PlanSection } from './plan-section'
 import { useStep } from './use-step'
 
 /**
  * The Studio rail panel: capture the current view (scene version and camera kept with it), then
  * hand it to Antigravity or redraw it in Cycles. Results saved for either appear by themselves.
+ * Pianta draws the whole scene as our dimensioned plan, no capture needed.
  */
 export default function StudioPanel() {
   const projectId = useViewer((s) => s.projectId)
@@ -44,6 +46,7 @@ export default function StudioPanel() {
       )}
       {sceneId && <AntigravitySection capture={capture} sceneId={sceneId} />}
       {sceneId && <CyclesSection capture={capture} sceneId={sceneId} />}
+      {sceneId && <PlanSection sceneId={sceneId} />}
     </div>
   )
 }
