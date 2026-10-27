@@ -5,7 +5,7 @@ import type {
   ImportedMeshNode,
 } from '@pascal-app/core'
 import { readFloorplanContext } from '@pascal-app/editor'
-import { PLAN_CUT_HEIGHT } from '../block/floorplan'
+import { OVERHEAD_STYLE, PLAN_CUT_HEIGHT } from '../block/floorplan'
 import { convexHull } from '../shared/convex-hull'
 
 type Footprint = { hull: [number, number][]; bottom: number }
@@ -31,8 +31,8 @@ function footprint(primitives: ImportedMeshNode['primitives']): Footprint | null
 
 /**
  * Imported geometry in plan, drawn like a block: its outline, an outline in plan ink on a
- * drafted sheet, and nothing on a sheet when it stands wholly above the plan cut (wall
- * cabinets, a hood, a mirror).
+ * drafted sheet; wholly above the plan cut (wall cabinets, a hood, a mirror) dashed in the
+ * live plan and left off a sheet.
  */
 export function buildImportedMeshFloorplan(
   node: ImportedMeshNode,
@@ -41,7 +41,8 @@ export function buildImportedMeshFloorplan(
   const shape = footprint(node.primitives)
   if (!shape) return null
   const drafting = readFloorplanContext(ctx).drafting
-  if (drafting && node.position[1] + shape.bottom > PLAN_CUT_HEIGHT) return null
+  const overhead = node.position[1] + shape.bottom > PLAN_CUT_HEIGHT
+  if (drafting && overhead) return null
 
   const yaw = node.rotation[1]
   const cos = Math.cos(-yaw)
@@ -63,5 +64,6 @@ export function buildImportedMeshFloorplan(
         : '#64748b',
     strokeWidth: selected ? 0.04 : 0.025,
     vectorEffect: 'non-scaling-stroke',
+    ...(overhead && !selected ? OVERHEAD_STYLE : {}),
   }
 }

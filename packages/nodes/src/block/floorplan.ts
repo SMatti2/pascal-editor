@@ -20,6 +20,15 @@ import { convexHull } from '../shared/convex-hull'
  */
 export const PLAN_CUT_HEIGHT = 1.2
 
+/** Above the cut in the live plan: a dashed outline, no fill, as a drafted plan shows beams (dash as ceilings). */
+export const OVERHEAD_STYLE = {
+  fill: 'none',
+  stroke: '#94a3b8',
+  strokeWidth: 0.018,
+  strokeDasharray: '0.15 0.1',
+  vectorEffect: undefined, // dash and width in plan metres
+} as const
+
 const VERTICAL_FACE_MAX_NORMAL_Y = 1e-3
 
 const planRingsByTopology = new WeakMap<BlockTopology, [number, number][][]>()
@@ -84,8 +93,9 @@ export function buildBlockFloorplan(
   if (rings.length === 0) return null
   const selected = ctx?.viewState?.selected ?? false
   const drafting = ctx ? readFloorplanContext(ctx).drafting : false
+  const overhead = isOverheadBlock(node)
   // Overhead trim is not on a drafted sheet at all.
-  if (drafting && isOverheadBlock(node)) return null
+  if (drafting && overhead) return null
   const style = {
     // on a sheet a floor-standing block is an outline in plan ink, like a wall
     fill: drafting ? 'none' : selected ? '#fed7aa' : '#cbd5e1',
@@ -97,6 +107,8 @@ export function buildBlockFloorplan(
         : '#475569',
     strokeWidth: selected ? 0.03 : 0.018,
     pointerEvents: 'all' as const,
+    // beams, lintels and fascias over the live plan: dashed, so the floor below stays readable
+    ...(overhead && !selected ? OVERHEAD_STYLE : {}),
   }
   return {
     kind: 'group',

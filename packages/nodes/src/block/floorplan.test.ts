@@ -41,6 +41,17 @@ const ctxFor = (drafting: boolean, selected = false): GeometryContext =>
     extensions: createFloorplanContextExtensions({ purpose: 'document', drafting }),
   }) as unknown as GeometryContext
 
+test('in the live plan an overhead block is a dashed outline; a floor block stays filled', () => {
+  const style = (geometry: FloorplanGeometry | null) =>
+    geometry?.kind === 'group' && geometry.children[0]?.kind === 'polygon'
+      ? geometry.children[0]
+      : null
+  const beam = style(buildBlockFloorplan(block(2.6), ctxFor(false)))
+  expect([beam?.fill, beam?.strokeDasharray]).toEqual(['none', '0.15 0.1'])
+  const floor = style(buildBlockFloorplan(block(0), ctxFor(false)))
+  expect([floor?.fill, floor?.strokeDasharray]).toEqual(['#cbd5e1', undefined])
+})
+
 describe('buildBlockFloorplan — overhead trim stays off a drafted sheet', () => {
   test('a fascia block at roof height is overhead; a cabinet on the floor is not', () => {
     expect(isOverheadBlock(block(2.6))).toBe(true)
@@ -57,18 +68,6 @@ describe('buildBlockFloorplan — overhead trim stays off a drafted sheet', () =
     if (poly?.kind === 'polygon') {
       expect(poly.fill).toBe('none')
       expect(poly.stroke).toBe('#111827')
-    }
-  })
-
-  test('without drafting every block keeps its wash, overhead or not', () => {
-    for (const y of [0, 2.6]) {
-      const g = buildBlockFloorplan(block(y), ctxFor(false))
-      const poly = g?.kind === 'group' ? g.children[0] : null
-      expect(poly?.kind).toBe('polygon')
-      if (poly?.kind === 'polygon') {
-        expect(poly.fill).toBe('#cbd5e1')
-        expect(poly.strokeDasharray).toBeUndefined()
-      }
     }
   })
 })

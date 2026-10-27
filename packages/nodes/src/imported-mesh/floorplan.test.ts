@@ -48,7 +48,10 @@ describe('buildImportedMeshFloorplan', () => {
     expect(buildImportedMeshFloorplan(diamond(1.5), ctxFor(true))).toBeNull()
   })
 
-  test('the live view still shows a mesh above the cut, to select it', () => {
-    expect(buildImportedMeshFloorplan(diamond(1.5), ctxFor(false))?.kind).toBe('polygon')
+  test('the live view shows a mesh above the cut dashed, still there to select', () => {
+    const plan = buildImportedMeshFloorplan(diamond(1.5), ctxFor(false))
+    expect(
+      plan?.kind === 'polygon' && [plan.fill, plan.strokeDasharray, plan.vectorEffect],
+    ).toEqual(['none', '0.15 0.1', undefined])
   })
 })
