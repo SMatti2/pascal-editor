@@ -9,7 +9,6 @@ afterEach(() => {
 })
 
 test('the model comes from the editor export, never as a download', async () => {
-  await expect(exportGlb()).rejects.toThrow('non è ancora pronto')
   const asked: unknown[] = []
   const blob = new Blob(['glTF'])
   useEditor.setState({
@@ -20,6 +19,24 @@ test('the model comes from the editor export, never as a download', async () => 
   })
   expect(await exportGlb()).toBe(blob)
   expect(asked).toEqual([['glb', { download: false }]])
+})
+
+test('from 2D the 3D view opens until the exporter is there, then 2D comes back', async () => {
+  const blob = new Blob(['glTF'])
+  useEditor.getState().setViewMode('2d')
+  const views: string[] = []
+  const stop = useEditor.subscribe((state) => {
+    views.push(state.viewMode)
+    if (state.viewMode === '3d' && !state.modelExport)
+      setTimeout(
+        () => useEditor.setState({ modelExport: async () => ({ blob, filename: 'm.glb' }) }),
+        150,
+      )
+  })
+  expect(await exportGlb()).toBe(blob)
+  stop()
+  expect(views).toContain('3d')
+  expect(useEditor.getState().viewMode).toBe('2d')
 })
 
 test('a render is queued with the capture id and the GLB', async () => {
