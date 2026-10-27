@@ -5,22 +5,7 @@ import type {
   PipeFittingNode,
 } from '@pascal-app/core'
 import { Euler, type Group, Mesh, Vector3 } from 'three'
-
-type Point = [number, number]
-const cross = (a: Point, b: Point, c: Point) =>
-  (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
-function hull(points: Point[]): Point[] {
-  points.sort((a, b) => a[0] - b[0] || a[1] - b[1])
-  const chain = (list: Point[]) => {
-    const result: Point[] = []
-    for (const p of list) {
-      while (result.length >= 2 && cross(result.at(-2)!, result.at(-1)!, p) <= 0) result.pop()
-      result.push(p)
-    }
-    return result.slice(0, -1)
-  }
-  return [...chain(points), ...chain([...points].reverse())]
-}
+import { convexHull } from './convex-hull'
 
 export function accessoryFloorplan(
   group: Group,
@@ -35,7 +20,7 @@ export function accessoryFloorplan(
   group.traverse((object) => {
     if (!(object instanceof Mesh)) return
     const positions = object.geometry.getAttribute('position')
-    const points: Point[] = []
+    const points: [number, number][] = []
     for (let i = 0; i < positions.count; i++) {
       const p = new Vector3()
         .fromBufferAttribute(positions, i)
@@ -43,7 +28,7 @@ export function accessoryFloorplan(
         .applyEuler(euler)
       points.push([p.x + node.position[0], p.z + node.position[2]])
     }
-    const outline = hull(points)
+    const outline = convexHull(points)
     if (outline.length >= 3)
       children.push({
         kind: 'polygon',
