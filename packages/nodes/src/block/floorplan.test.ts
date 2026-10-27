@@ -41,7 +41,7 @@ const ctxFor = (drafting: boolean, selected = false): GeometryContext =>
     extensions: createFloorplanContextExtensions({ purpose: 'document', drafting }),
   }) as unknown as GeometryContext
 
-test('in the live plan an overhead block is a dashed outline; a floor block stays filled', () => {
+test('in the live plan an overhead block is dashed, a cut one is wall, a low one keeps its wash', () => {
   const style = (geometry: FloorplanGeometry | null) =>
     geometry?.kind === 'group' && geometry.children[0]?.kind === 'polygon'
       ? geometry.children[0]
@@ -50,6 +50,8 @@ test('in the live plan an overhead block is a dashed outline; a floor block stay
   expect([beam?.fill, beam?.strokeDasharray]).toEqual(['none', '0.15 0.1'])
   const floor = style(buildBlockFloorplan(block(0), ctxFor(false)))
   expect([floor?.fill, floor?.strokeDasharray]).toEqual(['#cbd5e1', undefined])
+  const wall = style(buildBlockFloorplan(block(0, 4, 2.7), ctxFor(false))) // the cut passes through it
+  expect(wall?.fill).toBe('#374151')
 })
 
 describe('buildBlockFloorplan — overhead trim stays off a drafted sheet', () => {

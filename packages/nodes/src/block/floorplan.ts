@@ -20,6 +20,9 @@ import { convexHull } from '../shared/convex-hull'
  */
 export const PLAN_CUT_HEIGHT = 1.2
 
+/** Cut by the plan in the live view: Pascal's wall fill and edge. */
+const CUT_STYLE = { fill: '#374151', fillOpacity: 0.92, stroke: '#1f2937' } as const
+
 /** Above the cut in the live plan: a dashed outline, no fill, as a drafted plan shows beams (dash as ceilings). */
 export const OVERHEAD_STYLE = {
   fill: 'none',
@@ -85,6 +88,12 @@ export function isOverheadBlock(node: Pick<BlockNode, 'position' | 'topology'>):
   return node.position[1] + minY > PLAN_CUT_HEIGHT
 }
 
+/** True when the plan cut passes through the block: in plan it is wall, drawn as one. */
+export function isCutBlock(node: Pick<BlockNode, 'position' | 'topology'>): boolean {
+  const ys = node.topology.vertices.map((vertex) => node.position[1] + vertex.position[1])
+  return ys.length > 0 && Math.min(...ys) <= PLAN_CUT_HEIGHT && Math.max(...ys) > PLAN_CUT_HEIGHT
+}
+
 export function buildBlockFloorplan(
   node: BlockNode,
   ctx?: GeometryContext,
@@ -109,6 +118,8 @@ export function buildBlockFloorplan(
     pointerEvents: 'all' as const,
     // beams, lintels and fascias over the live plan: dashed, so the floor below stays readable
     ...(overhead && !selected ? OVERHEAD_STYLE : {}),
+    // cut by the plan: a wall, filled as Pascal fills walls
+    ...(!drafting && !selected && isCutBlock(node) ? CUT_STYLE : {}),
   }
   return {
     kind: 'group',
