@@ -4,40 +4,63 @@ import type {
   GeometryContext,
   ImportedMeshNode,
 } from '@pascal-app/core'
+import { readFloorplanContext } from '@pascal-app/editor'
+import { PLAN_CUT_HEIGHT } from '../block/floorplan'
+import { convexHull } from '../shared/convex-hull'
 
-/** A compact plan proxy for imported geometry, derived from its XZ bounds. */
+type Footprint = { hull: [number, number][]; bottom: number }
+
+const footprintByPrimitives = new WeakMap<ImportedMeshNode['primitives'], Footprint | null>()
+
+/** The mesh's plan outline (convex hull of its XZ points) and lowest local y, cached per geometry. */
+function footprint(primitives: ImportedMeshNode['primitives']): Footprint | null {
+  if (footprintByPrimitives.has(primitives)) return footprintByPrimitives.get(primitives)!
+  const points: FloorplanPoint[] = []
+  let bottom = Number.POSITIVE_INFINITY
+  for (const primitive of primitives) {
+    for (let i = 0; i + 2 < primitive.positions.length; i += 3) {
+      points.push([primitive.positions[i]!, primitive.positions[i + 2]!])
+      bottom = Math.min(bottom, primitive.positions[i + 1]!)
+    }
+  }
+  const hull = convexHull(points)
+  const result = hull.length >= 3 && Number.isFinite(bottom) ? { hull, bottom } : null
+  footprintByPrimitives.set(primitives, result)
+  return result
+}
+
+/**
+ * Imported geometry in plan, drawn like a block: its outline, an outline in plan ink on a
+ * drafted sheet, and nothing on a sheet when it stands wholly above the plan cut (wall
+ * cabinets, a hood, a mirror).
+ */
 export function buildImportedMeshFloorplan(
   node: ImportedMeshNode,
   ctx: GeometryContext,
 ): FloorplanGeometry | null {
-  let minX = Number.POSITIVE_INFINITY
-  let maxX = Number.NEGATIVE_INFINITY
-  let minZ = Number.POSITIVE_INFINITY
-  let maxZ = Number.NEGATIVE_INFINITY
-  for (const primitive of node.primitives) {
-    for (let i = 0; i + 2 < primitive.positions.length; i += 3) {
-      minX = Math.min(minX, primitive.positions[i]!)
-      maxX = Math.max(maxX, primitive.positions[i]!)
-      minZ = Math.min(minZ, primitive.positions[i + 2]!)
-      maxZ = Math.max(maxZ, primitive.positions[i + 2]!)
-    }
-  }
-  if (![minX, maxX, minZ, maxZ].every(Number.isFinite)) return null
+  const shape = footprint(node.primitives)
+  if (!shape) return null
+  const drafting = readFloorplanContext(ctx).drafting
+  if (drafting && node.position[1] + shape.bottom > PLAN_CUT_HEIGHT) return null
 
   const yaw = node.rotation[1]
   const cos = Math.cos(-yaw)
   const sin = Math.sin(-yaw)
-  const toPlan = (x: number, z: number): FloorplanPoint => [
+  const toPlan = ([x, z]: [number, number]): FloorplanPoint => [
     node.position[0] + x * cos - z * sin,
     node.position[2] + x * sin + z * cos,
   ]
   const selected = Boolean(ctx.viewState?.selected || ctx.viewState?.highlighted)
   return {
     kind: 'polygon',
-    points: [toPlan(minX, minZ), toPlan(maxX, minZ), toPlan(maxX, maxZ), toPlan(minX, maxZ)],
-    fill: '#94a3b8',
+    points: shape.hull.map(toPlan),
+    fill: drafting ? 'none' : '#94a3b8',
     fillOpacity: selected ? 0.28 : 0.14,
-    stroke: selected ? (ctx.viewState?.palette?.selectedStroke ?? '#f97316') : '#64748b',
+    stroke: drafting
+      ? '#111827'
+      : selected
+        ? (ctx.viewState?.palette?.selectedStroke ?? '#f97316')
+        : '#64748b',
     strokeWidth: selected ? 0.04 : 0.025,
     vectorEffect: 'non-scaling-stroke',
   }
