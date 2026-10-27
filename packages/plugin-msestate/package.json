@@ -2,7 +2,7 @@
   "name": "@msestate/pascal-plugin",
   "version": "0.0.0",
   "private": true,
-  "description": "MS Estate rail panels for our Pascal fork: Studio renders (epic 1), Domande (epic 3). UI only; the work runs in the msestate server.",
+  "description": "MS Estate rail panels for our Pascal fork: Studio renders (epic 1), Note on pieces (epic 3). UI only; the work runs in the msestate server.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -21,6 +21,7 @@
     "@pascal-app/editor": "*",
     "@pascal-app/nodes": "*",
     "react": "^19",
-    "@pascal-app/viewer": "*"
+    "@pascal-app/viewer": "*",
+    "three": "*"
   }
 }
