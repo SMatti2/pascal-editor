@@ -12,6 +12,7 @@
 @source "../../../node_modules/@pascal-app/plugin-bath-space/src";
 @source "../../../node_modules/@pascal-app/plugin-pool/src";
 @source "../../../node_modules/@webxr/plugin/src";
+@source "../../../packages/plugin-msestate/src"; /* MS Estate fork: our panels */
 
 @custom-variant dark (&:is(.dark *));
 

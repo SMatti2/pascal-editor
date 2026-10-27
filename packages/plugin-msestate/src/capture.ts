@@ -3,7 +3,7 @@ import { projectApi, replyOf } from './http'
 import { hiddenLevels, requestFrame } from './view'
 
 /** A capture our server kept: its operation id and project-relative files. */
-export type SavedCapture = { id: string; image: string; sidecar: string }
+export type SavedCapture = { id: string; image: string; sidecar: string; captured_at?: string }
 
 /** The scene a capture shows: the saved version and a hash of the graph as rendered. */
 export type SceneStamp = { id: string; version: number; sha256: string }
@@ -51,7 +51,7 @@ export async function saveCapture(
     response,
     'Salvataggio non riuscito',
   )
-  return { id, ...capture }
+  return { id, ...capture, captured_at: new Date().toISOString() }
 }
 
 /**

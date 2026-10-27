@@ -22,6 +22,7 @@
     "@pascal-app/nodes": "*",
     "react": "^19",
     "@pascal-app/viewer": "*",
+    "@radix-ui/react-dialog": "*",
     "lucide-react": "*",
     "three": "*"
   }

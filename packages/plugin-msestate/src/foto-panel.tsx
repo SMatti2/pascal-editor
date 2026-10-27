@@ -11,6 +11,7 @@ import { copyWhenReady, createRequest, listRequests, type ReferenceChoice } from
 import { Gallery, renderTile, requestTiles } from './results'
 import { usePolling } from './use-polling'
 import { useStep } from './use-step'
+import { Viewer } from './viewer'
 
 type Route = 'antigravity' | 'blender'
 const ROUTES: { label: string; value: Route }[] = [
@@ -18,6 +19,8 @@ const ROUTES: { label: string; value: Route }[] = [
   { label: 'Blender', value: 'blender' },
 ]
 const APPEARANCE_MAX = 4000
+const when = (iso: string) =>
+  new Date(iso).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })
 const PRIMARY =
   'rounded-md bg-primary px-3 py-2 font-medium text-primary-foreground text-sm hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50'
 
@@ -71,6 +74,7 @@ function BlenderForm({ sceneId, capture, onSent }: FormProps) {
     )
   return (
     <div className="flex flex-col gap-3">
+      <span className="-mb-1 font-medium text-muted-foreground text-xs">Luce</span>
       <SegmentedControl
         onChange={(value) => setSun(value === 'sun')}
         options={[
@@ -93,6 +97,9 @@ function BlenderForm({ sceneId, capture, onSent }: FormProps) {
       <button className={PRIMARY} disabled={busy || (sun && !sunAt)} onClick={send} type="button">
         Foto realistica
       </button>
+      {sun && !sunAt && !busy && (
+        <p className="text-muted-foreground text-xs">Scegli giorno e ora per il sole.</p>
+      )}
       {line}
     </div>
   )
@@ -109,6 +116,7 @@ export default function FotoPanel() {
   const sceneId = typeof window === 'undefined' ? null : sceneIdFromPath(window.location.pathname)
   const [capture, setCapture] = useState<SavedCapture | null>(null)
   const [route, setRoute] = useState<Route>('antigravity')
+  const [viewing, setViewing] = useState<number | null>(null)
   const { busy, run, line } = useStep()
 
   useEffect(() => {
@@ -142,11 +150,23 @@ export default function FotoPanel() {
 
       {capture ? (
         <figure className="relative overflow-hidden rounded-md ring-1 ring-border/50">
-          <img
-            alt="La vista catturata"
-            className="aspect-video w-full object-cover"
-            src={thumbnailUrl(sceneId, capture.image, 768)}
-          />
+          <button
+            aria-label="Apri la vista catturata a tutto schermo"
+            className="block w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => setViewing(0)}
+            type="button"
+          >
+            <img
+              alt=""
+              className="aspect-video w-full object-cover"
+              src={thumbnailUrl(sceneId, capture.image, 768)}
+            />
+          </button>
+          {capture.captured_at && (
+            <figcaption className="absolute bottom-2 left-2 rounded-md bg-background/85 px-2 py-1 text-xs tabular-nums shadow-sm backdrop-blur-sm">
+              Catturata {when(capture.captured_at)}
+            </figcaption>
+          )}
           <button
             className="absolute right-2 bottom-2 rounded-md bg-background/85 px-2.5 py-1 font-medium text-xs shadow-sm backdrop-blur-sm hover:bg-background focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
             disabled={!projectId || busy}
@@ -171,12 +191,29 @@ export default function FotoPanel() {
       {capture && (
         <section aria-label="Fai la foto" className="flex flex-col gap-3">
           <SegmentedControl onChange={setRoute} options={ROUTES} value={route} />
-          {route === 'antigravity' ? (
+          {/* both stay mounted, so a switch keeps the brief, references and light */}
+          <div hidden={route !== 'antigravity'}>
             <AntigravityForm capture={capture} onSent={requests.refresh} sceneId={sceneId} />
-          ) : (
+          </div>
+          <div hidden={route !== 'blender'}>
             <BlenderForm capture={capture} onSent={renders.refresh} sceneId={sceneId} />
-          )}
+          </div>
         </section>
+      )}
+      {capture && (
+        <Viewer
+          index={viewing}
+          items={[
+            {
+              src: thumbnailUrl(sceneId, capture.image, 1920),
+              alt: 'La vista catturata',
+              caption: capture.captured_at
+                ? `Catturata ${when(capture.captured_at)}`
+                : 'Vista catturata',
+            },
+          ]}
+          onIndex={setViewing}
+        />
       )}
 
       {loadError && <p className="text-destructive text-xs">{loadError}</p>}

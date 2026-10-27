@@ -8,8 +8,8 @@ export async function replyOf<T>(response: Response, fallback: string): Promise<
   return body
 }
 
-/** A project image through our server's thumbnail route (192, 384 or 768 px wide). */
-export const thumbnailUrl = (sceneId: string, path: string, width: 192 | 384 | 768) =>
+/** A project image through our server's thumbnail route (192, 384, 768 or 1920 px wide). */
+export const thumbnailUrl = (sceneId: string, path: string, width: 192 | 384 | 768 | 1920) =>
   `${projectApi(sceneId)}/thumbnails?${new URLSearchParams({ path, width: String(width) })}`
 
 /** What to show for a failure: its message, or the value itself. */

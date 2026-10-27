@@ -32,6 +32,7 @@ describe('saveCapture', () => {
         id: sent[0]?.get('operation_id') as string,
         image: 'i',
         sidecar: 's',
+        captured_at: expect.any(String), // shown on the capture as "Catturata …"
       })
       await saveCapture({ blob: new Blob(['webp']) }, scene)
     } finally {

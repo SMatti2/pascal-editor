@@ -21,9 +21,13 @@ export function useStep() {
   }
   const line =
     step.kind === 'idle' ? null : step.kind === 'error' ? (
-      <p className="text-destructive text-xs">{step.message}</p>
+      <p className="text-destructive text-xs" role="alert">
+        {step.message}
+      </p>
     ) : (
-      <p className="text-sidebar-foreground/70 text-xs">{step.label}</p>
+      <p className="text-sidebar-foreground/70 text-xs" role="status">
+        {step.label}
+      </p>
     )
   return { busy: step.kind === 'busy', run, line }
 }

@@ -8,6 +8,7 @@ import { exportGlb } from './cycles'
 import { errorMessage } from './http'
 import { currentPlan, drawPlan, type Plan, planDimensions, sheetUrl } from './plan'
 import { useStep } from './use-step'
+import { Viewer } from './viewer'
 
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 const LINK =
@@ -18,6 +19,7 @@ export default function PiantaPanel() {
   const sceneId = typeof window === 'undefined' ? null : sceneIdFromPath(window.location.pathname)
   const [plan, setPlan] = useState<Plan | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [viewing, setViewing] = useState<number | null>(null)
   const { busy, run, line } = useStep()
 
   useEffect(() => {
@@ -64,18 +66,18 @@ export default function PiantaPanel() {
       {error && <p className="text-destructive text-xs">{error}</p>}
       {plan && (
         <figure className="flex flex-col gap-2">
-          <a
-            className="block overflow-hidden rounded-md bg-white ring-1 ring-border/50 focus-visible:ring-2 focus-visible:ring-ring"
-            href={sheetUrl(sceneId, 'svg', plan.drawn_at)}
-            rel="noreferrer"
-            target="_blank"
+          <button
+            aria-label="Apri la pianta a tutto schermo"
+            className="block overflow-hidden rounded-md bg-white ring-1 ring-border/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => setViewing(0)}
+            type="button"
           >
             <img
-              alt="La pianta disegnata"
+              alt=""
               className="aspect-[4/3] w-full object-contain p-1"
               src={sheetUrl(sceneId, 'svg', plan.drawn_at)}
             />
-          </a>
+          </button>
           <figcaption className="text-muted-foreground text-xs tabular-nums">
             {notes.join(' · ')}
           </figcaption>
@@ -87,13 +89,25 @@ export default function PiantaPanel() {
               target="_blank"
             >
               <ExternalLink aria-hidden className="size-3.5" />
-              Apri
+              Apri in una scheda
             </a>
             <a className={LINK} download href={sheetUrl(sceneId, 'dxf', plan.drawn_at)}>
               <Download aria-hidden className="size-3.5" />
               Scarica DXF
             </a>
           </div>
+          <Viewer
+            index={viewing}
+            items={[
+              {
+                src: sheetUrl(sceneId, 'svg', plan.drawn_at),
+                alt: 'La pianta disegnata',
+                caption: notes.join(' · '),
+                drawing: true,
+              },
+            ]}
+            onIndex={setViewing}
+          />
         </figure>
       )}
     </div>
