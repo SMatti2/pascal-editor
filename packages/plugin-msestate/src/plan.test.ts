@@ -65,4 +65,7 @@ test('the plan is drawn from the GLB and the dimensions, and its sheets are read
   expect(sheetUrl('casa', 'dxf', '2026-10-27T10:00:00.000Z')).toBe(
     '/api/projects/casa/pascal/plan.dxf?v=2026-10-27T10%3A00%3A00.000Z',
   )
+  expect(sheetUrl('casa', 'svg', 't', 'bim-pp-day')).toBe(
+    '/api/projects/casa/pascal/plan.svg?v=t&sheet=bim-pp-day',
+  )
 })

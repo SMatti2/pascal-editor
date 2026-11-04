@@ -9,9 +9,13 @@ export type PlanDimension = {
   direction: [number, number]
 }
 
+/** A sheet of the plan: one per level. */
+export type Sheet = { id: string; title: string }
+
 /** The project's current plan on our server. */
 export type Plan = {
   drawn_at: string
+  sheets?: Sheet[]
   glb_sha256?: string
   dimensions?: number
   oblique_left_out?: number
@@ -19,9 +23,9 @@ export type Plan = {
 
 const api = (sceneId: string) => `${projectApi(sceneId)}/pascal`
 
-/** The sheet's address through the editor's origin: `svg` to look at, `dxf` for CAD. */
-export const sheetUrl = (sceneId: string, kind: 'svg' | 'dxf', drawnAt: string) =>
-  `${api(sceneId)}/plan.${kind}?v=${encodeURIComponent(drawnAt)}`
+/** A sheet's address through the editor's origin: `svg` to look at, `dxf` for CAD; no `sheet`, the first. */
+export const sheetUrl = (sceneId: string, kind: 'svg' | 'dxf', drawnAt: string, sheet?: string) =>
+  `${api(sceneId)}/plan.${kind}?v=${encodeURIComponent(drawnAt)}${sheet ? `&sheet=${encodeURIComponent(sheet)}` : ''}`
 
 /**
  * The floor-plan linear dimensions, anchors resolved by Pascal against the scene as it is. A

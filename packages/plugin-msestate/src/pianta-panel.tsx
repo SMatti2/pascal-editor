@@ -6,10 +6,12 @@ import { useEffect, useState } from 'react'
 import { sceneIdFromPath } from './capture'
 import { exportGlb } from './cycles'
 import { errorMessage } from './http'
-import { currentPlan, drawPlan, type Plan, planDimensions, sheetUrl } from './plan'
+import { currentPlan, drawPlan, type Plan, planDimensions, type Sheet, sheetUrl } from './plan'
 import { useStep } from './use-step'
 import { Viewer } from './viewer'
 
+/** A plan drawn before sheets were listed: its one sheet, served by default. */
+const FIRST: Sheet = { id: '', title: 'Pianta' }
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 const LINK =
   'flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border/60 px-2 py-1.5 font-medium text-xs hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
@@ -20,6 +22,7 @@ export default function PiantaPanel() {
   const [plan, setPlan] = useState<Plan | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [viewing, setViewing] = useState<number | null>(null)
+  const [shown, setShown] = useState(0)
   const { busy, run, line } = useStep()
 
   useEffect(() => {
@@ -38,6 +41,10 @@ export default function PiantaPanel() {
       `Pianta aggiornata${left}.`,
     )
   }
+  const sheets = plan?.sheets?.length ? plan.sheets : [FIRST]
+  const sheet = sheets[Math.min(shown, sheets.length - 1)] ?? FIRST
+  const url = (kind: 'svg' | 'dxf', id = sheet.id) =>
+    sheetUrl(sceneId, kind, plan?.drawn_at ?? '', id || undefined)
   const notes = plan
     ? [
         new Date(plan.drawn_at).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' }),
@@ -66,46 +73,51 @@ export default function PiantaPanel() {
       {error && <p className="text-destructive text-xs">{error}</p>}
       {plan && (
         <figure className="flex flex-col gap-2">
+          {sheets.length > 1 && (
+            <div className="flex flex-wrap gap-1" role="tablist" aria-label="Piano">
+              {sheets.map((s, k) => (
+                <button
+                  aria-selected={s.id === sheet.id}
+                  className={`rounded-md px-2 py-1 font-medium text-xs ${s.id === sheet.id ? 'bg-accent' : 'hover:bg-accent/40'}`}
+                  key={s.id}
+                  onClick={() => setShown(k)}
+                  role="tab"
+                  type="button"
+                >
+                  {s.title.split(' · ')[0]}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             aria-label="Apri la pianta a tutto schermo"
             className="block overflow-hidden rounded-md bg-white ring-1 ring-border/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            onClick={() => setViewing(0)}
+            onClick={() => setViewing(sheets.indexOf(sheet))}
             type="button"
           >
-            <img
-              alt=""
-              className="aspect-[4/3] w-full object-contain p-1"
-              src={sheetUrl(sceneId, 'svg', plan.drawn_at)}
-            />
+            <img alt="" className="aspect-[4/3] w-full object-contain p-1" src={url('svg')} />
           </button>
           <figcaption className="text-muted-foreground text-xs tabular-nums">
             {notes.join(' · ')}
           </figcaption>
           <div className="flex gap-2">
-            <a
-              className={LINK}
-              href={sheetUrl(sceneId, 'svg', plan.drawn_at)}
-              rel="noreferrer"
-              target="_blank"
-            >
+            <a className={LINK} href={url('svg')} rel="noreferrer" target="_blank">
               <ExternalLink aria-hidden className="size-3.5" />
               Apri in una scheda
             </a>
-            <a className={LINK} download href={sheetUrl(sceneId, 'dxf', plan.drawn_at)}>
+            <a className={LINK} download href={url('dxf')}>
               <Download aria-hidden className="size-3.5" />
               Scarica DXF
             </a>
           </div>
           <Viewer
             index={viewing}
-            items={[
-              {
-                src: sheetUrl(sceneId, 'svg', plan.drawn_at),
-                alt: 'La pianta disegnata',
-                caption: notes.join(' · '),
-                drawing: true,
-              },
-            ]}
+            items={sheets.map((s) => ({
+              src: url('svg', s.id),
+              alt: `La pianta disegnata, ${s.title}`,
+              caption: [s.title, ...notes].join(' · '),
+              drawing: true,
+            }))}
             onIndex={setViewing}
           />
         </figure>
