@@ -10,7 +10,7 @@ WebGPU. Run it in the browser or from the CLI, and connect AI agents through MCP
 [![Discord](https://img.shields.io/badge/Discord-Join%20Server-5865F2?logo=discord&logoColor=white)](https://discord.gg/XRKsDcpqgS)
 [![X (Twitter)](https://img.shields.io/badge/follow-%40pascal-black?logo=x&logoColor=white)](https://x.com/pascal)
 
-https://github.com/user-attachments/assets/8b50e7cf-cebe-4579-9cf3-8786b35f7b6b
+https://github.com/user-attachments/assets/063c0891-9ae5-4173-bd08-a101d9c3352b
 
 ## A first look at Pascal Next
 
@@ -43,7 +43,7 @@ and note your edits; no separate permission is needed.
 
 ## Run the Editor Locally
 
-Node.js 22.13 or newer can create a persistent local Pascal installation without
+Node.js 22.23.4+ on 22.x, 24.22.1+ on 24.x, or 26.12.1+ can create a persistent local Pascal installation without
 cloning this repository:
 
 ```bash
@@ -127,12 +127,16 @@ These workflows require a connected Pascal MCP server for their tool-backed acti
 
 ### MCP Registry
 
+Also listed on [Smithery](https://smithery.ai/servers/pascalapp/editor).
+
 [`server.json`](server.json) is Pascal's manifest for the official MCP Registry, named
 `app.pascal/editor`. It lists the `@pascal-app/mcp` npm package and the hosted Streamable HTTP
 endpoint, which signs in with OAuth. Its version is the `@pascal-app/mcp` package version:
 `bun scripts/sync-agent-versions.ts` rewrites it, and the Cursor plugin's CLI pin, from the
-package versions, and CI fails when they drift. A Pascal owner publishes from `main` after a
-release; see [wiki/npm-release.md](wiki/npm-release.md#mcp-registry).
+package versions, and CI fails when they drift. Each stable release publishes it to the registry
+after npm has the package. The signing key is CI's own `pascal.app` DNS key, stored only as a secret of
+the `mcp-registry` environment (limited to `main`), never as a repository secret; see
+[wiki/npm-release.md](wiki/npm-release.md#mcp-registry).
 
 ## Using Published Packages
 

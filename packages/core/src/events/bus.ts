@@ -375,7 +375,7 @@ type DoorAnimationEvents = {
 type WindowAnimationEvents = {
   'window:animation-completed': {
     windowId: WindowNode['id']
-    field: 'operationState'
+    field: 'operationState' | 'shutterOpen' | 'rollerShutterOpen'
   }
 }
 

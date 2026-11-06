@@ -11,12 +11,17 @@ import {
   isAutoRidgeVentEnabled,
   isDefaultRidgeVentNode,
   isGlazedRoofSegment,
+  type MessageDescriptor,
   normalizeRoofSegmentTrim,
   ROOF_SHAPE_DEFAULTS,
+  type RoofEaveCut,
   type RoofSegmentNode,
   type RoofSegmentTrim,
   type RoofType,
+  roofBuildUpPatch,
+  roofSegmentEaveProfile,
   roofTypeHasRakes,
+  usePascalI18n,
   useScene,
 } from '@pascal-app/core'
 import {
@@ -37,24 +42,47 @@ import { useCallback } from 'react'
 import { BarrelRoofPanel } from '../roof/barrel-panel'
 import { RoofGlazingPanel } from '../roof/glazing-panel'
 import { commitSeatedRoofEdit } from '../roof/roof-level-target'
+import { RoofBuildUpSection } from './build-up-section'
 
-const ROOF_TYPE_OPTIONS: { label: string; value: RoofType }[] = [
-  { label: 'Hip', value: 'hip' },
-  { label: 'Gable', value: 'gable' },
-  { label: 'Shed', value: 'shed' },
+const ROOF_TYPE_OPTIONS: { label: MessageDescriptor; value: RoofType }[] = [
+  { label: /* i18n */ { id: 'node.roofSegment.panel.hip', message: 'Hip' }, value: 'hip' },
+  { label: /* i18n */ { id: 'node.roofSegment.panel.gable', message: 'Gable' }, value: 'gable' },
+  { label: /* i18n */ { id: 'node.roofSegment.panel.shed', message: 'Shed' }, value: 'shed' },
 ]
 
-const ROOF_TYPE_OPTIONS_2: { label: string; value: RoofType }[] = [
-  { label: 'Flat', value: 'flat' },
-  { label: 'Gambrel', value: 'gambrel' },
-  { label: 'Dutch', value: 'dutch' },
-  { label: 'Mansard', value: 'mansard' },
+const ROOF_TYPE_OPTIONS_2: { label: MessageDescriptor; value: RoofType }[] = [
+  { label: /* i18n */ { id: 'node.roofSegment.panel.flat', message: 'Flat' }, value: 'flat' },
+  {
+    label: /* i18n */ { id: 'node.roofSegment.panel.gambrel', message: 'Gambrel' },
+    value: 'gambrel',
+  },
+  { label: /* i18n */ { id: 'node.roofSegment.panel.dutch', message: 'Dutch' }, value: 'dutch' },
+  {
+    label: /* i18n */ { id: 'node.roofSegment.panel.mansard', message: 'Mansard' },
+    value: 'mansard',
+  },
 ]
 
-const ROOF_TYPE_OPTIONS_3: { label: string; value: RoofType }[] = [
-  { label: 'Conical', value: 'conical' },
-  { label: 'Barrel', value: 'barrel' },
+const ROOF_TYPE_OPTIONS_3: { label: MessageDescriptor; value: RoofType }[] = [
+  {
+    label: /* i18n */ { id: 'node.roofSegment.panel.conical', message: 'Conical' },
+    value: 'conical',
+  },
+  { label: /* i18n */ { id: 'node.roofSegment.panel.barrel', message: 'Barrel' }, value: 'barrel' },
 ]
+
+// How the rafter tails are cut at the eaves, the fascia and soffit with them (core's `roofEaveProfile`).
+const EAVE_CUT_OPTIONS: { label: MessageDescriptor; value: RoofEaveCut }[] = [
+  { label: /* i18n */ { id: 'node.roofSegment.panel.plumb', message: 'Plumb' }, value: 'plumb' },
+  { label: /* i18n */ { id: 'node.roofSegment.panel.square', message: 'Square' }, value: 'square' },
+  {
+    label: /* i18n */ { id: 'node.roofSegment.panel.plumbLevel', message: 'Plumb + level' },
+    value: 'plumb-level',
+  },
+]
+
+/** The sloped forms whose tails are cut at their eaves by the plane's eave cut. */
+const EAVE_CUT_ROOF_TYPES: ReadonlySet<RoofType> = new Set(['gable', 'hip', 'shed'])
 
 // Carpenter / roofer convention: rise over a 12" run, converted to degrees.
 // atan(3/12) ≈ 14.04°, atan(6/12) ≈ 26.57°, atan(9/12) ≈ 36.87°, atan(12/12) = 45°.
@@ -84,6 +112,17 @@ const EMPTY_TRIM: RoofSegmentTrim = {
   backRightZ: 0,
 }
 
+/** The planes of a roof that take layers: its segments, glazed ones aside. */
+function roofLayerPlaneIds(
+  children: readonly string[],
+  nodes: Record<AnyNodeId, AnyNode>,
+): AnyNodeId[] {
+  return children.filter((id) => {
+    const child = nodes[id as AnyNodeId]
+    return child?.type === 'roof-segment' && !isGlazedRoofSegment(child)
+  }) as AnyNodeId[]
+}
+
 function hasSegmentTrim(node: RoofSegmentNode): boolean {
   return Object.values(normalizeRoofSegmentTrim(node)).some((value) => value > 0)
 }
@@ -105,11 +144,13 @@ function metadataRecord(metadata: unknown): Record<string, unknown> {
 }
 
 export default function RoofSegmentPanel() {
+  const i18n = usePascalI18n()
   const selectedId = useViewer((s) => s.selection.selectedIds[0])
   const setSelection = useViewer((s) => s.setSelection)
   const updateNode = useScene((s) => s.updateNode)
   const setMovingNode = useEditor((s) => s.setMovingNode)
   const setRoofHostDragArmedId = useEditor((s) => s.setRoofHostDragArmedId)
+  const unit = useViewer((s) => s.unit)
 
   const node = useScene((s) =>
     selectedId ? (s.nodes[selectedId as AnyNode['id']] as RoofSegmentNode | undefined) : undefined,
@@ -120,6 +161,14 @@ export default function RoofSegmentPanel() {
       : undefined
     if (current?.type !== 'roof-segment') return false
     return isAutoRidgeVentEnabled(current, s.nodes)
+  })
+  // How many planes of this roof take layers: "Apply to all planes" shows once there are two.
+  const roofPlaneCount = useScene((s) => {
+    const current = selectedId
+      ? (s.nodes[selectedId as AnyNode['id']] as RoofSegmentNode | undefined)
+      : undefined
+    const roof = current?.parentId ? s.nodes[current.parentId as AnyNodeId] : undefined
+    return roof?.type === 'roof' ? roofLayerPlaneIds(roof.children, s.nodes).length : 0
   })
   const autoGutterEnabled = useScene((s) => {
     const current = selectedId
@@ -140,6 +189,18 @@ export default function RoofSegmentPanel() {
     },
     [selectedId],
   )
+
+  const handleApplyToRoof = useCallback(() => {
+    const scene = useScene.getState()
+    const current = selectedId ? scene.nodes[selectedId as AnyNodeId] : undefined
+    if (current?.type !== 'roof-segment' || !current.buildUp) return
+    const roof = current.parentId ? scene.nodes[current.parentId as AnyNodeId] : undefined
+    if (roof?.type !== 'roof') return
+    const patch = roofBuildUpPatch(current.buildUp)
+    scene.updateNodes(
+      roofLayerPlaneIds(roof.children, scene.nodes).map((id) => ({ id, data: patch })),
+    )
+  }, [selectedId])
 
   const handleRoofTypeChange = useCallback(
     (roofType: RoofType) => {
@@ -317,33 +378,41 @@ export default function RoofSegmentPanel() {
       icon="/icons/roof.webp"
       onBack={handleBack}
       onClose={handleClose}
-      title={node.name || 'Roof Segment'}
+      title={
+        node.name || i18n._({ id: 'node.roofSegment.panel.roofSegment', message: 'Roof Segment' })
+      }
       width={300}
     >
       <RoofGlazingPanel segments={[node]} />
-      <PanelSection title="Roof Type">
+      <PanelSection title={i18n._({ id: 'node.roofSegment.panel.roofType', message: 'Roof Type' })}>
         <SegmentedControl
           onChange={(v) => handleRoofTypeChange(v)}
-          options={ROOF_TYPE_OPTIONS}
+          options={ROOF_TYPE_OPTIONS.map((option) => ({ ...option, label: i18n._(option.label) }))}
           value={node.roofType}
           disabled={managedLeanToRoofSegment}
         />
         <SegmentedControl
           onChange={(v) => handleRoofTypeChange(v)}
-          options={ROOF_TYPE_OPTIONS_2}
+          options={ROOF_TYPE_OPTIONS_2.map((option) => ({
+            ...option,
+            label: i18n._(option.label),
+          }))}
           value={node.roofType}
           disabled={managedLeanToRoofSegment}
         />
         <SegmentedControl
           onChange={(v) => handleRoofTypeChange(v)}
-          options={ROOF_TYPE_OPTIONS_3}
+          options={ROOF_TYPE_OPTIONS_3.map((option) => ({
+            ...option,
+            label: i18n._(option.label),
+          }))}
           value={node.roofType}
           disabled={managedLeanToRoofSegment}
         />
       </PanelSection>
 
       {node.roofType !== 'conical' && (
-        <PanelSection title="Trim">
+        <PanelSection title={i18n._({ id: 'node.roofSegment.panel.trim', message: 'Trim' })}>
           <ActionGroup>
             <ActionButton
               icon={
@@ -353,21 +422,31 @@ export default function RoofSegmentPanel() {
                   <Pencil className="h-3.5 w-3.5" />
                 )
               }
-              label={showTrimPlanes ? 'Done editing' : 'Edit footprint'}
+              label={
+                showTrimPlanes
+                  ? i18n._({ id: 'node.roofSegment.panel.doneEditing', message: 'Done editing' })
+                  : i18n._({
+                      id: 'node.roofSegment.panel.editFootprint',
+                      message: 'Edit footprint',
+                    })
+              }
               onClick={() => (showTrimPlanes ? handleBack() : handleTrimEditing(true))}
             />
             <ActionButton
               className="disabled:cursor-not-allowed disabled:opacity-40"
               disabled={!hasSegmentTrim(node)}
               icon={<RotateCcw className="h-3.5 w-3.5" />}
-              label="Reset"
+              label={i18n._({ id: 'node.roofSegment.panel.reset', message: 'Reset' })}
               onClick={handleResetTrim}
             />
           </ActionGroup>
           {node.roofType !== 'shed' && node.roofType !== 'flat' && node.roofType !== 'barrel' && (
             <ToggleControl
               checked={autoRidgeVentEnabled}
-              label="Auto ridge vent"
+              label={i18n._({
+                id: 'node.roofSegment.panel.autoRidgeVent',
+                message: 'Auto ridge vent',
+              })}
               onChange={handleAutoRidgeVentToggle}
             />
           )}
@@ -375,19 +454,23 @@ export default function RoofSegmentPanel() {
       )}
 
       {node.roofType !== 'conical' && (
-        <PanelSection title="Drainage">
+        <PanelSection
+          title={i18n._({ id: 'node.roofSegment.panel.drainage', message: 'Drainage' })}
+        >
           <ToggleControl
             checked={autoGutterEnabled}
-            label="Auto gutters"
+            label={i18n._({ id: 'node.roofSegment.panel.autoGutters', message: 'Auto gutters' })}
             onChange={handleAutoGutterToggle}
           />
         </PanelSection>
       )}
 
-      <PanelSection title="Footprint">
+      <PanelSection
+        title={i18n._({ id: 'node.roofSegment.panel.footprint', message: 'Footprint' })}
+      >
         {node.roofType === 'conical' ? (
           <SliderControl
-            label="Diameter"
+            label={i18n._({ id: 'node.roofSegment.panel.diameter', message: 'Diameter' })}
             max={1000}
             min={0.5}
             onChange={(v) => handleUpdate({ width: v, depth: v })}
@@ -399,7 +482,11 @@ export default function RoofSegmentPanel() {
         ) : (
           <>
             <SliderControl
-              label={node.roofType === 'barrel' ? 'Length' : 'Width'}
+              label={
+                node.roofType === 'barrel'
+                  ? i18n._({ id: 'node.roofSegment.panel.length', message: 'Length' })
+                  : i18n._({ id: 'node.roofSegment.panel.width', message: 'Width' })
+              }
               max={1000}
               min={0.5}
               onChange={(v) => handleUpdate({ width: v })}
@@ -409,7 +496,11 @@ export default function RoofSegmentPanel() {
               value={node.width}
             />
             <SliderControl
-              label={node.roofType === 'barrel' ? 'Span' : 'Depth'}
+              label={
+                node.roofType === 'barrel'
+                  ? i18n._({ id: 'node.roofSegment.panel.span', message: 'Span' })
+                  : i18n._({ id: 'node.roofSegment.panel.depth', message: 'Depth' })
+              }
               max={1000}
               min={0.5}
               onChange={(v) => handleUpdate({ depth: v })}
@@ -423,16 +514,21 @@ export default function RoofSegmentPanel() {
       </PanelSection>
 
       {node.roofType === 'conical' && (
-        <PanelSection title="Conical Shape">
+        <PanelSection
+          title={i18n._({ id: 'node.roofSegment.panel.conicalShape', message: 'Conical Shape' })}
+        >
           <ToggleControl
             checked={!conicalCoverage.fullCircle}
-            label="Clipped version"
+            label={i18n._({
+              id: 'node.roofSegment.panel.clippedVersion',
+              message: 'Clipped version',
+            })}
             onChange={(checked) => handleUpdate({ conicalFullCircle: !checked })}
           />
           {!conicalCoverage.fullCircle && (
             <>
               <SliderControl
-                label="Start Angle"
+                label={i18n._({ id: 'node.roofSegment.panel.startAngle', message: 'Start Angle' })}
                 max={180}
                 min={-180}
                 onChange={(degrees) =>
@@ -444,7 +540,7 @@ export default function RoofSegmentPanel() {
                 value={Math.round((conicalCoverage.startAngle * 180) / Math.PI)}
               />
               <SliderControl
-                label="Arc"
+                label={i18n._({ id: 'node.roofSegment.panel.arc', message: 'Arc' })}
                 max={345}
                 min={15}
                 onChange={(degrees) =>
@@ -463,9 +559,11 @@ export default function RoofSegmentPanel() {
         </PanelSection>
       )}
 
-      <PanelSection title="Wall Height">
+      <PanelSection
+        title={i18n._({ id: 'node.roofSegment.panel.wallHeight', message: 'Wall Height' })}
+      >
         <SliderControl
-          label="Wall"
+          label={i18n._({ id: 'node.roofSegment.panel.wall', message: 'Wall' })}
           max={1000}
           min={0}
           onChange={(v) => handleUpdate({ wallHeight: v })}
@@ -479,9 +577,9 @@ export default function RoofSegmentPanel() {
       {node.roofType === 'barrel' ? (
         <BarrelRoofPanel node={node} />
       ) : (
-        <PanelSection title="Pitch">
+        <PanelSection title={i18n._({ id: 'node.roofSegment.panel.pitch', message: 'Pitch' })}>
           <SliderControl
-            label="Angle"
+            label={i18n._({ id: 'node.roofSegment.panel.angle', message: 'Angle' })}
             max={60}
             min={0}
             onChange={(v) => handleUpdate({ pitch: v })}
@@ -503,9 +601,9 @@ export default function RoofSegmentPanel() {
       )}
 
       {node.roofType === 'gambrel' && (
-        <PanelSection title="Shape">
+        <PanelSection title={i18n._({ id: 'node.roofSegment.panel.shape', message: 'Shape' })}>
           <SliderControl
-            label="Kink Depth"
+            label={i18n._({ id: 'node.roofSegment.panel.kinkDepth', message: 'Kink Depth' })}
             max={0.9}
             min={0.1}
             onChange={(v) => handleUpdate({ gambrelLowerWidthRatio: v })}
@@ -515,7 +613,7 @@ export default function RoofSegmentPanel() {
             value={Math.round(node.gambrelLowerWidthRatio * 100) / 100}
           />
           <SliderControl
-            label="Kink Height"
+            label={i18n._({ id: 'node.roofSegment.panel.kinkHeight', message: 'Kink Height' })}
             max={0.9}
             min={0.1}
             onChange={(v) => handleUpdate({ gambrelLowerHeightRatio: v })}
@@ -528,9 +626,9 @@ export default function RoofSegmentPanel() {
       )}
 
       {node.roofType === 'mansard' && (
-        <PanelSection title="Shape">
+        <PanelSection title={i18n._({ id: 'node.roofSegment.panel.shape', message: 'Shape' })}>
           <SliderControl
-            label="Waist Width"
+            label={i18n._({ id: 'node.roofSegment.panel.waistWidth', message: 'Waist Width' })}
             max={0.45}
             min={0.05}
             onChange={(v) => handleUpdate({ mansardSteepWidthRatio: v })}
@@ -540,7 +638,7 @@ export default function RoofSegmentPanel() {
             value={Math.round(node.mansardSteepWidthRatio * 100) / 100}
           />
           <SliderControl
-            label="Waist Height"
+            label={i18n._({ id: 'node.roofSegment.panel.waistHeight', message: 'Waist Height' })}
             max={0.9}
             min={0.1}
             onChange={(v) => handleUpdate({ mansardSteepHeightRatio: v })}
@@ -553,9 +651,9 @@ export default function RoofSegmentPanel() {
       )}
 
       {node.roofType === 'dutch' && (
-        <PanelSection title="Shape">
+        <PanelSection title={i18n._({ id: 'node.roofSegment.panel.shape', message: 'Shape' })}>
           <SliderControl
-            label="Waist Width"
+            label={i18n._({ id: 'node.roofSegment.panel.waistWidth', message: 'Waist Width' })}
             max={0.45}
             min={0.05}
             onChange={(v) => handleUpdate({ dutchHipWidthRatio: v })}
@@ -565,7 +663,7 @@ export default function RoofSegmentPanel() {
             value={Math.round(node.dutchHipWidthRatio * 100) / 100}
           />
           <SliderControl
-            label="Waist Height"
+            label={i18n._({ id: 'node.roofSegment.panel.waistHeight', message: 'Waist Height' })}
             max={0.9}
             min={0.1}
             onChange={(v) => handleUpdate({ dutchHipHeightRatio: v })}
@@ -575,7 +673,7 @@ export default function RoofSegmentPanel() {
             value={Math.round(node.dutchHipHeightRatio * 100) / 100}
           />
           <SliderControl
-            label="Waist Length"
+            label={i18n._({ id: 'node.roofSegment.panel.waistLength', message: 'Waist Length' })}
             max={1}
             min={0.1}
             onChange={(v) => handleUpdate({ dutchWaistLengthRatio: v })}
@@ -589,7 +687,10 @@ export default function RoofSegmentPanel() {
             }
           />
           <SliderControl
-            label="Top Rake Thick."
+            label={i18n._({
+              id: 'node.roofSegment.panel.topRakeThick',
+              message: 'Top Rake Thick.',
+            })}
             max={0.5}
             min={0.01}
             onChange={(v) => handleUpdate({ dutchTopRakeThickness: v })}
@@ -599,7 +700,10 @@ export default function RoofSegmentPanel() {
             value={node.dutchTopRakeThickness ?? ROOF_SHAPE_DEFAULTS.dutchTopRakeThickness}
           />
           <SliderControl
-            label="Top Rake Length"
+            label={i18n._({
+              id: 'node.roofSegment.panel.topRakeLength',
+              message: 'Top Rake Length',
+            })}
             max={3}
             min={0}
             onChange={(v) => handleUpdate({ dutchGabletRake: v })}
@@ -611,9 +715,11 @@ export default function RoofSegmentPanel() {
         </PanelSection>
       )}
 
-      <PanelSection title="Structure">
+      <PanelSection
+        title={i18n._({ id: 'node.roofSegment.panel.structure', message: 'Structure' })}
+      >
         <SliderControl
-          label="Wall Thick."
+          label={i18n._({ id: 'node.roofSegment.panel.wallThick', message: 'Wall Thick.' })}
           max={1}
           min={0.05}
           onChange={(v) => handleUpdate({ wallThickness: v })}
@@ -622,9 +728,10 @@ export default function RoofSegmentPanel() {
           unit="m"
           value={node.wallThickness}
         />
-        {!isGlazedRoofSegment(node) && (
+        {/* With layers, the Layers section sets it and shows it. */}
+        {!(isGlazedRoofSegment(node) || node.buildUp) && (
           <SliderControl
-            label="Deck Thick."
+            label={i18n._({ id: 'node.roofSegment.panel.deckThick', message: 'Deck Thick.' })}
             max={0.3}
             min={0.04}
             onChange={(v) => handleUpdate({ deckThickness: v })}
@@ -636,7 +743,7 @@ export default function RoofSegmentPanel() {
         )}
         {node.roofType === 'barrel' ? (
           <SliderControl
-            label="End overhang"
+            label={i18n._({ id: 'node.roofSegment.panel.endOverhang', message: 'End overhang' })}
             max={1}
             min={0}
             onChange={(v) => handleUpdate({ overhang: v })}
@@ -647,7 +754,7 @@ export default function RoofSegmentPanel() {
           />
         ) : (
           <SliderControl
-            label="Eave overhang"
+            label={i18n._({ id: 'node.roofSegment.panel.eaveOverhang', message: 'Eave overhang' })}
             max={1}
             min={0}
             onChange={(v) => handleUpdate({ overhang: v / cosTheta })}
@@ -659,7 +766,10 @@ export default function RoofSegmentPanel() {
         )}
         {roofTypeHasRakes(node.roofType) && (
           <SliderControl
-            label="Gable overhang"
+            label={i18n._({
+              id: 'node.roofSegment.panel.gableOverhang',
+              message: 'Gable overhang',
+            })}
             max={3}
             min={0}
             onChange={(v) => handleUpdate({ gableOverhang: v })}
@@ -669,9 +779,9 @@ export default function RoofSegmentPanel() {
             value={reach.x - halfWall}
           />
         )}
-        {!isGlazedRoofSegment(node) && (
+        {!(isGlazedRoofSegment(node) || node.buildUp) && (
           <SliderControl
-            label="Shingle Thick."
+            label={i18n._({ id: 'node.roofSegment.panel.shingleThick', message: 'Shingle Thick.' })}
             max={0.3}
             min={0.02}
             onChange={(v) => handleUpdate({ shingleThickness: v })}
@@ -681,26 +791,50 @@ export default function RoofSegmentPanel() {
             value={node.shingleThickness}
           />
         )}
+        {EAVE_CUT_ROOF_TYPES.has(node.roofType) && node.pitch > 0 && (
+          <div>
+            <div className="px-1 pb-1 text-[10px] text-muted-foreground uppercase tracking-wide">
+              {i18n._({ id: 'node.roofSegment.panel.eaveCut', message: 'Eave cut' })}
+            </div>
+            <SegmentedControl
+              onChange={(v) => handleUpdate({ eaveCut: v })}
+              options={EAVE_CUT_OPTIONS.map((option) => ({
+                ...option,
+                label: i18n._(option.label),
+              }))}
+              value={node.eaveCut ?? 'plumb'}
+            />
+          </div>
+        )}
         <ToggleControl
           checked={node.fascia ?? false}
-          label="Fascia"
+          label={i18n._({ id: 'node.roofSegment.panel.fascia', message: 'Fascia' })}
           onChange={(checked) => handleUpdate({ fascia: checked })}
         />
         {node.fascia && (
           <SliderControl
-            label="Fascia height"
+            label={i18n._({ id: 'node.roofSegment.panel.fasciaHeight', message: 'Fascia height' })}
             max={0.6}
             min={0.1}
             onChange={(v) => handleUpdate({ fasciaHeight: v })}
             precision={2}
             step={0.01}
             unit="m"
-            value={node.fasciaHeight ?? 0.184}
+            value={node.fasciaHeight ?? roofSegmentEaveProfile(node).fascia.height}
           />
         )}
       </PanelSection>
 
-      <PanelSection title="Position">
+      {!isGlazedRoofSegment(node) && (
+        <RoofBuildUpSection
+          node={node}
+          onApplyToRoof={roofPlaneCount > 1 ? handleApplyToRoof : undefined}
+          onUpdate={handleUpdate}
+          unit={unit}
+        />
+      )}
+
+      <PanelSection title={i18n._({ id: 'node.roofSegment.panel.position', message: 'Position' })}>
         <SliderControl
           label="X"
           onChange={(v) => {
@@ -740,7 +874,7 @@ export default function RoofSegmentPanel() {
         {(node.roofType !== 'conical' || !conicalCoverage.fullCircle) && (
           <>
             <SliderControl
-              label="Rotation"
+              label={i18n._({ id: 'node.roofSegment.panel.rotation', message: 'Rotation' })}
               max={180}
               min={-180}
               onChange={(degrees) => {
@@ -771,18 +905,22 @@ export default function RoofSegmentPanel() {
         )}
       </PanelSection>
 
-      <PanelSection title="Actions">
+      <PanelSection title={i18n._({ id: 'node.roofSegment.panel.actions', message: 'Actions' })}>
         <ActionGroup>
-          <ActionButton icon={<Move className="h-3.5 w-3.5" />} label="Move" onClick={handleMove} />
+          <ActionButton
+            icon={<Move className="h-3.5 w-3.5" />}
+            label={i18n._({ id: 'node.roofSegment.panel.move', message: 'Move' })}
+            onClick={handleMove}
+          />
           <ActionButton
             icon={<Copy className="h-3.5 w-3.5" />}
-            label="Duplicate"
+            label={i18n._({ id: 'node.roofSegment.panel.duplicate', message: 'Duplicate' })}
             onClick={handleDuplicate}
           />
           <ActionButton
             className="hover:bg-red-500/20"
             icon={<Trash2 className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />}
-            label="Delete"
+            label={i18n._({ id: 'node.roofSegment.panel.delete', message: 'Delete' })}
             onClick={handleDelete}
           />
         </ActionGroup>
