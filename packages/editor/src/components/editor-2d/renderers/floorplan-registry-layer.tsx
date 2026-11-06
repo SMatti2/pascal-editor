@@ -91,6 +91,7 @@ import {
   buildFloorplanContext,
   floorplanLayerRank,
 } from '../../../lib/floorplan/floorplan-readonly'
+import { inkFloorplan } from '../../../lib/floorplan/ink'
 import { clientToPlan } from '../../../lib/floorplan/plan-coords'
 import {
   type ActiveInteractionScope,
@@ -2581,10 +2582,12 @@ export function buildFloorplanEntryGeometry({
         ...buildContext(effectiveNode, contextNodes, viewState, levelData),
         resolve: resolveContextNode,
       }
-  const modelGeometry = (builder as (n: AnyNode, c: GeometryContext) => FloorplanGeometry | null)(
+  const builtGeometry = (builder as (n: AnyNode, c: GeometryContext) => FloorplanGeometry | null)(
     effectiveNode,
     ctx,
   )
+  // msestate: the live plan in plan ink (sheets keep their own drafting ink)
+  const modelGeometry = palette ? inkFloorplan(node.type, builtGeometry) : builtGeometry
   const contextualGeometry = selected
     ? (getFloorplanNodeExtension(def)?.contextualDimensions?.(effectiveNode, ctx) ?? null)
     : null

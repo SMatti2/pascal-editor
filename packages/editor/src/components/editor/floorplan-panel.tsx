@@ -6278,10 +6278,15 @@ export function FloorplanPanel({
         svg.style.willChange = 'transform'
       }
 
-      const nextUserRotationDeg = floorplanRotationFromCameraAzimuth(
-        pose.azimuth,
-        presentationState.latestUserRotationDeg,
-      )
+      // msestate: the plan follows the 3D camera to the nearest quarter turn, so it stays square
+      // to the building as a drawn plan is (the compass shows north)
+      const nextUserRotationDeg =
+        Math.round(
+          floorplanRotationFromCameraAzimuth(
+            pose.azimuth,
+            presentationState.latestUserRotationDeg,
+          ) / 90,
+        ) * 90
       const localCenter = worldToFloorplanLocalPoint(
         pose.target[0],
         pose.target[2],
@@ -7011,12 +7016,13 @@ export function FloorplanPanel({
             curveHandleHoverStroke: '#14b8a6',
           }
         : {
+            // msestate: plan ink, a faint grid
             surface: '#ffffff',
-            minorGrid: '#94a3b8',
-            majorGrid: '#475569',
-            minorGridOpacity: 0.7,
-            majorGridOpacity: 0.9,
-            slabFill: '#f6f6f6',
+            minorGrid: '#d4d4d4',
+            majorGrid: '#a3a3a3',
+            minorGridOpacity: 0.5,
+            majorGridOpacity: 0.7,
+            slabFill: '#ffffff',
             slabStroke: '#9e9e9e',
             selectedSlabFill: 'rgba(59, 130, 246, 0.14)',
             selectedSlabStroke: '#3b82f6',
@@ -7024,9 +7030,9 @@ export function FloorplanPanel({
             ceilingStroke: '#9e9e9e',
             selectedCeilingFill: 'rgba(59, 130, 246, 0.16)',
             selectedCeilingStroke: '#2563eb',
-            wallFill: '#1f2937',
-            wallStroke: 'rgba(31, 41, 55, 0.9)',
-            wallInnerStroke: 'rgba(71, 85, 105, 0.58)',
+            wallFill: '#000000',
+            wallStroke: '#000000',
+            wallInnerStroke: 'rgba(0, 0, 0, 0.58)',
             wallShadow: 'rgba(15, 23, 42, 0.1)',
             wallHoverStroke: '#60a5fa',
             deleteFill: '#fca5a5',
@@ -7037,7 +7043,7 @@ export function FloorplanPanel({
             selectedStroke: '#3b82f6',
             draftFill: '#6366f1',
             draftStroke: '#4338ca',
-            measurementStroke: '#334155',
+            measurementStroke: '#262626',
             cursor: '#6366f1',
             editCursor: '#8381ed',
             anchor: '#4338ca',
