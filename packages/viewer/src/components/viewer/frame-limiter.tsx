@@ -1,7 +1,21 @@
+import { useScene } from '@pascal-app/core'
 import { useThree } from '@react-three/fiber'
 import { useLayoutEffect, useRef } from 'react'
 import { timeSpan } from '../../lib/perf-tracks'
 import useViewer from '../../store/use-viewer'
+
+/**
+ * msestate: a still scene does not need 50 full frames a second (each runs the whole
+ * post-processing chain). After IDLE_AFTER_MS with no input and no scene or viewer change
+ * the loop drops to IDLE_FPS, so temporal effects still settle; the next event restores it.
+ */
+export const IDLE_AFTER_MS = 3000
+export const IDLE_FPS = 5
+const ACTIVITY_EVENTS = ['pointerdown', 'pointermove', 'wheel', 'keydown', 'resize'] as const
+
+export function frameIntervalMs(fps: number, now: number, lastActive: number): number {
+  return 1000 / (now - lastActive > IDLE_AFTER_MS ? Math.min(fps, IDLE_FPS) : fps)
+}
 
 type FrameLimiterProps = {
   fps?: number
@@ -91,6 +105,10 @@ const FrameLimiter: React.FC<FrameLimiterProps> = ({ fps = 50, paused = false, o
     }
     const effectiveFps = Number.isFinite(fps) && fps > 0 ? fps : 50
     const interval = 1000 / effectiveFps
+    let lastActive = performance.now()
+    const markActive = () => {
+      lastActive = performance.now()
+    }
     function syncSize() {
       if (sizeSynced) return
       renderer.setPixelRatio(dpr)
@@ -100,7 +118,7 @@ const FrameLimiter: React.FC<FrameLimiterProps> = ({ fps = 50, paused = false, o
     function tick(t: DOMHighResTimeStamp) {
       raf = requestAnimationFrame(tick)
       syncSize()
-      const frameTime = clock.sample(t, interval)
+      const frameTime = clock.sample(t, frameIntervalMs(effectiveFps, t, lastActive))
       if (frameTime === null) return
       nextFrameTimeRef.current = frameTime
       timeSpan('frame-cpu', () => advance(frameTime))
@@ -125,14 +143,21 @@ const FrameLimiter: React.FC<FrameLimiterProps> = ({ fps = 50, paused = false, o
     } else {
       // Kick off custom render loop
       raf = requestAnimationFrame(tick)
+      for (const event of ACTIVITY_EVENTS)
+        window.addEventListener(event, markActive, { passive: true })
       // rAF can stall while a tab is hidden, unfocused, or occluded. With the
       // default loop disabled, force one current frame as soon as it resumes.
       document.addEventListener('visibilitychange', onVisibilityChange)
       window.addEventListener('focus', kick)
       window.addEventListener('pageshow', kick)
     }
+    const unsubscribeScene = useScene.subscribe(markActive)
+    const unsubscribeViewer = useViewer.subscribe(markActive)
     // Restore initial setting
     return () => {
+      unsubscribeScene()
+      unsubscribeViewer()
+      for (const event of ACTIVITY_EVENTS) window.removeEventListener(event, markActive)
       if (raf) {
         cancelAnimationFrame(raf)
       }

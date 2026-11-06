@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { createFrameClock } from './frame-limiter'
+import { createFrameClock, frameIntervalMs, IDLE_AFTER_MS, IDLE_FPS } from './frame-limiter'
 
 describe('createFrameClock', () => {
   test('uses the first rAF sample only as a wall-time baseline', () => {
@@ -33,5 +33,17 @@ describe('createFrameClock', () => {
 
     expect(clock.step(0.02)).toBeCloseTo(2.02)
     expect(clock.step(0.001)).toBeCloseTo(2.021)
+  })
+})
+
+describe('frameIntervalMs', () => {
+  test('full rate while active, IDLE_FPS once still for IDLE_AFTER_MS', () => {
+    expect(frameIntervalMs(50, 1000, 0)).toBe(20)
+    expect(frameIntervalMs(50, IDLE_AFTER_MS, 0)).toBe(20)
+    expect(frameIntervalMs(50, IDLE_AFTER_MS + 1, 0)).toBe(1000 / IDLE_FPS)
+  })
+
+  test('a cap below the idle rate is kept', () => {
+    expect(frameIntervalMs(2, 10_000, 0)).toBe(500)
   })
 })
