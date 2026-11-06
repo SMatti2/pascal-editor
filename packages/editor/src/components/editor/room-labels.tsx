@@ -1138,7 +1138,7 @@ function LabelParts({
         {name}
       </span>
       <span
-        className="shrink-0 whitespace-nowrap font-mono text-white/60 tabular-nums [[data-room-label-tier]>&]:hidden [[data-room-label-view='2d']>&]:text-neutral-600 [[data-room-label-view='2d']>&]:normal-case"
+        className="shrink-0 whitespace-nowrap font-mono text-white/60 tabular-nums [[data-room-label-tier]>&]:hidden [[data-room-label-view='2d']>&]:text-neutral-600"
         data-room-label-area=""
       >
         {areaLabel}
@@ -1193,7 +1193,7 @@ export function RoomPillChip({
       // or under the detail chip (taking no pointer unless it is the open
       // room's); eases into its nudged place and its tier.
       // msestate: on the 2D plan a label is text in plan ink, not a dark chip
-      className="pointer-events-auto flex cursor-pointer select-none items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 bg-neutral-950/75 px-2.5 py-1 text-white text-xs shadow-sm backdrop-blur-sm data-[room-label-view=2d]:border-transparent data-[room-label-view=2d]:bg-white/70 data-[room-label-view=2d]:text-neutral-900 data-[room-label-view=2d]:uppercase data-[room-label-view=2d]:tracking-wide data-[room-label-view=2d]:shadow-none data-[room-label-view=2d]:backdrop-blur-none transition-[opacity,translate,visibility] duration-180 starting:opacity-0 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 focus-visible:ring-6 focus-visible:ring-neutral-950/85 data-room-label-hidden:pointer-events-none data-room-label-suppressed:pointer-events-none data-room-label-hidden:invisible data-room-label-hidden:opacity-0 data-room-label-open:opacity-0 data-room-label-suppressed:opacity-0 data-room-label-open:duration-150 data-room-label-suppressed:duration-150 data-[room-label-tier=dot]:gap-0 data-[room-label-tier=dot]:p-[3px] motion-reduce:transition-none"
+      className="pointer-events-auto flex cursor-pointer select-none items-center gap-1.5 whitespace-nowrap rounded-full border border-white/10 bg-neutral-950/75 px-2.5 py-1 text-white text-xs shadow-sm backdrop-blur-sm data-[room-label-view=2d]:border-transparent data-[room-label-view=2d]:bg-white/70 data-[room-label-view=2d]:text-neutral-900 data-[room-label-view=2d]:shadow-none data-[room-label-view=2d]:backdrop-blur-none transition-[opacity,translate,visibility] duration-180 starting:opacity-0 focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2 focus-visible:ring-6 focus-visible:ring-neutral-950/85 data-room-label-hidden:pointer-events-none data-room-label-suppressed:pointer-events-none data-room-label-hidden:invisible data-room-label-hidden:opacity-0 data-room-label-open:opacity-0 data-room-label-suppressed:opacity-0 data-room-label-open:duration-150 data-room-label-suppressed:duration-150 data-[room-label-tier=dot]:gap-0 data-[room-label-tier=dot]:p-[3px] motion-reduce:transition-none"
       data-room-label={zoneId}
       data-room-label-view={view}
       onClick={(event) => {
