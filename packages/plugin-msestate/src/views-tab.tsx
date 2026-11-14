@@ -73,6 +73,40 @@ type Props = {
   onPhoto: (view: View) => void
 }
 
+/** The view's lens and the buttons that shoot it one lens wider or narrower. */
+function LensControl({
+  view,
+  busy,
+  onLens,
+}: {
+  view: View
+  busy: boolean
+  onLens: (mm: number) => void
+}) {
+  return (
+    <div className="flex items-center gap-1 text-xs">
+      <span className="text-muted-foreground tabular-nums">
+        Obiettivo {Math.round(lensOf(view))} mm
+      </span>
+      {([-1, 1] as const).map((by) => {
+        const mm = nextLens(view, by)
+        return (
+          <button
+            className={SMALL}
+            disabled={busy || mm === null}
+            key={by}
+            onClick={() => mm !== null && onLens(mm)}
+            title={mm === null ? undefined : `Rifai la vista con un ${mm} mm`}
+            type="button"
+          >
+            {by < 0 ? 'Più largo' : 'Più stretto'}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function ViewCard({
   sceneId,
   view,
@@ -139,26 +173,7 @@ function ViewCard({
             {when(view.captured_at)}
           </span>
         </div>
-        <div className="flex items-center gap-1 text-xs">
-          <span className="text-muted-foreground tabular-nums">
-            Obiettivo {Math.round(lensOf(view))} mm
-          </span>
-          {([-1, 1] as const).map((by) => {
-            const mm = nextLens(view, by)
-            return (
-              <button
-                className={SMALL}
-                disabled={busy || mm === null}
-                key={by}
-                onClick={() => mm !== null && onLens(mm)}
-                title={mm === null ? undefined : `Rifai la vista con un ${mm} mm`}
-                type="button"
-              >
-                {by < 0 ? 'Più largo' : 'Più stretto'}
-              </button>
-            )
-          })}
-        </div>
+        <LensControl busy={busy} onLens={onLens} view={view} />
         <div className="flex flex-wrap gap-1">
           <button className={SMALL} disabled={busy} onClick={() => goToView(view)} type="button">
             Vai alla vista

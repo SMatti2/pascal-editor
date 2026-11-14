@@ -48,14 +48,19 @@ export function poseOf(camera: SnapshotFrameCamera): SnapshotCapturePose {
   return { position: camera.position, quaternion: camera.quaternion, fov: camera.fov }
 }
 
+/** The viewport's camera, read from a frame of what it shows now. */
+async function viewportFrame(projectId: string) {
+  const frame = await requestFrame(projectId)
+  if (!frame.camera) throw new Error('L’editor non ha restituito la camera')
+  poseOf(frame.camera)
+  return frame as typeof frame & { camera: SnapshotFrameCamera }
+}
+
 /** The current viewport as a capture a view can stand on: perspective, with its camera. */
 async function captureCurrent(projectId: string, sceneId: string): Promise<SavedCapture> {
   const scene = await stampScene(sceneId)
   const hidden = hiddenLevels()
-  const frame = await requestFrame(projectId)
-  if (!frame.camera) throw new Error('L’editor non ha restituito la camera')
-  poseOf(frame.camera)
-  return saveCapture(frame, scene, hidden)
+  return saveCapture(await viewportFrame(projectId), scene, hidden)
 }
 
 /** A new view named `name` on what the viewport shows now. */
@@ -65,14 +70,17 @@ export async function addView(projectId: string, sceneId: string, name: string) 
 }
 
 /**
- * A new angle for `view`: the viewport's camera now, shot at the view's own size so a reframed
- * view keeps its frame (the viewport's shape changes with the window).
+ * `view` shot from `camera` at the view's own size, on the model as it is now, without moving the
+ * user's viewport; the view then stands on that shot.
  */
-export async function reframeView(projectId: string, sceneId: string, view: View) {
+async function shootFrom(
+  projectId: string,
+  sceneId: string,
+  view: View,
+  camera: SnapshotFrameCamera,
+  hidden: string[],
+) {
   const scene = await stampScene(sceneId)
-  const hidden = hiddenLevels()
-  const { camera } = await requestFrame(projectId)
-  if (!camera) throw new Error('L’editor non ha restituito la camera')
   const frame = await requestFrame(projectId, {
     pose: poseOf(camera),
     size: { w: view.width, h: view.height },
@@ -81,57 +89,54 @@ export async function reframeView(projectId: string, sceneId: string, view: View
   return changeView(sceneId, { action: 'shoot', id: view.id, capture: capture.id })
 }
 
-/** `view` shot again from its own camera, at its own size, on the model as it is now. */
-async function shootView(projectId: string, sceneId: string, view: View) {
-  const scene = await stampScene(sceneId)
-  const frame = await requestFrame(projectId, {
-    pose: poseOf(view.camera),
-    size: { w: view.width, h: view.height },
-  })
-  const capture = await saveCapture(
-    { blob: frame.blob, camera: view.camera },
-    scene,
-    view.hidden_levels,
-  )
-  return changeView(sceneId, { action: 'shoot', id: view.id, capture: capture.id })
+/**
+ * A new angle for `view`: the viewport's camera now, shot at the view's own size so a reframed
+ * view keeps its frame (the viewport's shape changes with the window).
+ */
+export async function reframeView(projectId: string, sceneId: string, view: View) {
+  const hidden = hiddenLevels()
+  const { camera } = await viewportFrame(projectId)
+  return shootFrom(projectId, sceneId, view, camera, hidden)
 }
 
-/* The lens, as a photographer names it: the full-frame focal length (36 mm wide sensor) giving
-   the view's horizontal angle. The camera keeps a vertical field of view; the shot's shape links them. */
+/** `view` shot again from its own camera. */
+const shootView = (projectId: string, sceneId: string, view: View) =>
+  shootFrom(projectId, sceneId, view, view.camera, view.hidden_levels)
+
+/* The lens, as a photographer names it: the full-frame focal length giving the view's horizontal
+   angle. The camera keeps a vertical field of view; the shot's shape links the two. */
 export const LENSES = [14, 16, 18, 20, 24, 28, 35, 50]
+const HALF_SENSOR_MM = 18 // a full-frame sensor is 36 mm wide
+const DEFAULT_FOV = 50 // the editor's perspective camera
+const LENS_TOLERANCE_MM = 0.5 // a lens this close to the view's counts as the same
+
+type Frame = Pick<View, 'width' | 'height'>
+const aspectOf = (frame: Frame) => frame.width / frame.height
 
 /** The view's lens in millimetres. */
-export function lensOf(view: Pick<View, 'camera' | 'width' | 'height'>): number {
-  const half = ((view.camera.fov ?? 50) * Math.PI) / 360
-  return 18 / (Math.tan(half) * (view.width / view.height))
+export function lensOf(view: Frame & Pick<View, 'camera'>): number {
+  const half = ((view.camera.fov ?? DEFAULT_FOV) * Math.PI) / 360
+  return HALF_SENSOR_MM / (Math.tan(half) * aspectOf(view))
 }
 
 /** The vertical field of view, in degrees, that a `mm` lens gives at the view's shape. */
-export function fovOf(mm: number, view: Pick<View, 'width' | 'height'>): number {
-  return (360 / Math.PI) * Math.atan(18 / (mm * (view.width / view.height)))
+export function fovOf(mm: number, frame: Frame): number {
+  return (360 / Math.PI) * Math.atan(HALF_SENSOR_MM / (mm * aspectOf(frame)))
 }
 
 /** The next lens in LENSES wider (−1) or narrower (+1) than the view's; null at the end of the list. */
-export function nextLens(
-  view: Pick<View, 'camera' | 'width' | 'height'>,
-  by: -1 | 1,
-): number | null {
+export function nextLens(view: Frame & Pick<View, 'camera'>, by: -1 | 1): number | null {
   const mm = lensOf(view)
-  const next = by < 0 ? LENSES.filter((l) => l < mm - 0.5).at(-1) : LENSES.find((l) => l > mm + 0.5)
+  const next =
+    by < 0
+      ? LENSES.filter((lens) => lens < mm - LENS_TOLERANCE_MM).at(-1)
+      : LENSES.find((lens) => lens > mm + LENS_TOLERANCE_MM)
   return next ?? null
 }
 
-/** `view` shot again from the same place with a `mm` lens, at its own size. */
-export async function changeLens(projectId: string, sceneId: string, view: View, mm: number) {
-  const scene = await stampScene(sceneId)
-  const camera = { ...view.camera, fov: fovOf(mm, view) }
-  const frame = await requestFrame(projectId, {
-    pose: poseOf(camera),
-    size: { w: view.width, h: view.height },
-  })
-  const capture = await saveCapture({ blob: frame.blob, camera }, scene, view.hidden_levels)
-  return changeView(sceneId, { action: 'shoot', id: view.id, capture: capture.id })
-}
+/** `view` shot again from the same place with a `mm` lens. */
+export const changeLens = (projectId: string, sceneId: string, view: View, mm: number) =>
+  shootFrom(projectId, sceneId, view, { ...view.camera, fov: fovOf(mm, view) }, view.hidden_levels)
 
 const SESSION = 'msestate:viste'
 
