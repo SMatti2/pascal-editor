@@ -4,6 +4,7 @@ import { Loader2, Plus } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { errorMessage, thumbnailUrl } from './http'
 import {
+  EXISTING,
   INSPIRATION,
   listSourceImages,
   PLACE,
@@ -124,17 +125,26 @@ function useSourceImages(sceneId: string, prefix: string) {
   return { images, error, reload }
 }
 
-/** Luogo: the photos of the place as it is (`sources/photos/`). */
+/** Luogo: the place as it is (`sources/photos/`), and its details kept or copied (`refs/esistente/`). */
 export function PlaceTab({ sceneId }: { sceneId: string }) {
-  const { images, error, reload } = useSourceImages(sceneId, PLACE)
+  const photos = useSourceImages(sceneId, PLACE)
+  const details = useSourceImages(sceneId, EXISTING)
+  const error = photos.error ?? details.error
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-5">
       <Shelf
         folder={PLACE}
-        images={images}
-        onUploaded={reload}
+        images={photos.images}
+        onUploaded={photos.reload}
         sceneId={sceneId}
         title="Foto del luogo"
+      />
+      <Shelf
+        folder={EXISTING}
+        images={details.images}
+        onUploaded={details.reload}
+        sceneId={sceneId}
+        title="Dettagli da tenere o copiare"
       />
       {error && <p className="text-destructive text-xs">{error}</p>}
     </div>

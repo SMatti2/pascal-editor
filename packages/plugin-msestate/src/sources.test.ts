@@ -30,11 +30,13 @@ test('only images under sources/refs/ are offered as references', async () => {
 
 test('each reference sits in one group; the rest stays visible as unsorted', () => {
   const groups = referenceGroups([
+    image('refs/esistente/mensola.png'),
     image('refs/ispirazione/mood.png'),
     image('refs/prodotti/grohe/rubinetto.jpg'),
     image('refs/vecchia.png'),
   ])
   expect(Object.values(groups).map((list) => list.map((i) => i.relative))).toEqual([
+    ['refs/esistente/mensola.png'],
     ['refs/ispirazione/mood.png'],
     ['refs/prodotti/grohe/rubinetto.jpg'],
     ['refs/vecchia.png'],
