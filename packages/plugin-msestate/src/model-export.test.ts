@@ -1,6 +1,6 @@
 import { afterEach, expect, spyOn, test } from 'bun:test'
 import { nodeRegistry, sceneRegistry, useScene } from '@pascal-app/core'
-import { useEditor } from '@pascal-app/editor'
+import { sceneLayout, useEditor, type VisibleScene, visibleScene } from '@pascal-app/editor'
 import { Group, Mesh } from 'three'
 import { exportGlb, unbuiltNodes } from './model-export'
 
@@ -8,7 +8,6 @@ afterEach(() => useEditor.setState({ modelExport: null }))
 
 test('the model comes from the editor export, never as a download', async () => {
   const asked: unknown[] = []
-  const blob = new Blob(['glTF'])
   useEditor.setState({
     modelExport: async (format, options) => {
       asked.push([format, options])
@@ -19,38 +18,48 @@ test('the model comes from the editor export, never as a download', async () => 
   expect(asked).toEqual([['glb', { download: false }]])
 })
 
+const blob = new Blob(['glTF'])
+const showing = () => visibleScene(useEditor.getState())
+const show = (scene: VisibleScene) => useEditor.getState().setViewLayout(sceneLayout(scene))
+
+/** An exporter that records which scene was on screen when it ran. */
+function recordingExporter(seen: unknown[]) {
+  return async () => {
+    seen.push(showing())
+    return { blob, filename: 'm.glb' }
+  }
+}
+
 test('from 2D the 3D view opens until the exporter is there, then 2D comes back', async () => {
-  const blob = new Blob(['glTF'])
-  useEditor.getState().setViewMode('2d')
-  const views: string[] = []
+  show('2d')
+  const seen: unknown[] = []
   const stop = useEditor.subscribe((state) => {
-    views.push(state.viewMode)
-    if (state.viewMode === '3d' && !state.modelExport)
-      setTimeout(
-        () => useEditor.setState({ modelExport: async () => ({ blob, filename: 'm.glb' }) }),
-        150,
-      )
+    if (visibleScene(state) === '3d' && !state.modelExport)
+      setTimeout(() => useEditor.setState({ modelExport: recordingExporter(seen) }), 150)
   })
   expect(await exportGlb()).toBe(blob)
   stop()
-  expect(views).toContain('3d')
-  expect(useEditor.getState().viewMode).toBe('2d')
+  expect(seen).toEqual(['3d'])
+  expect(showing()).toBe('2d')
 })
 
 test('from 2D the export runs in 3D even when the exporter is already registered', async () => {
   // A cabinet placed in 2D has no geometry until the 3D view builds it.
-  const blob = new Blob(['glTF'])
-  const viewAtExport: string[] = []
-  useEditor.getState().setViewMode('2d')
-  useEditor.setState({
-    modelExport: async () => {
-      viewAtExport.push(useEditor.getState().viewMode)
-      return { blob, filename: 'm.glb' }
-    },
-  })
+  show('2d')
+  const seen: unknown[] = []
+  useEditor.setState({ modelExport: recordingExporter(seen) })
   expect(await exportGlb()).toBe(blob)
-  expect(viewAtExport).toEqual(['3d'])
-  expect(useEditor.getState().viewMode).toBe('2d')
+  expect(seen).toEqual(['3d'])
+  expect(showing()).toBe('2d')
+})
+
+test('in split view 3D is already on screen: the layout stays', async () => {
+  show('split')
+  const seen: unknown[] = []
+  useEditor.setState({ modelExport: recordingExporter(seen) })
+  await exportGlb()
+  expect(seen).toEqual(['split'])
+  expect(showing()).toBe('split')
 })
 
 test('a visible geometry node counts as unbuilt until its 3D object holds a mesh', () => {
