@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'bun:test'
 import { emitter, type ThumbnailGenerateEvent } from '@pascal-app/core'
-import { poseOf, shootViews, targetOf, type View } from './views'
+import { fovOf, lensOf, nextLens, poseOf, shootViews, targetOf, type View } from './views'
 
 const realFetch = globalThis.fetch
 afterEach(() => {
@@ -83,4 +83,17 @@ test('a view is shot again from its own camera and size, inside one capture sess
   expect(JSON.parse(capture.get('hidden_levels') as string)).toEqual(['level_p1'])
   const shoot = JSON.parse(posted[1]?.body as string)
   expect(shoot).toEqual({ action: 'shoot', id: 'v1', capture: capture.get('operation_id') })
+})
+
+test('a lens is the full-frame focal length of the horizontal angle of the view', () => {
+  const view = {
+    camera: { ...CAMERA, fov: fovOf(24, { width: 1536, height: 1024 }) },
+    width: 1536,
+    height: 1024,
+  }
+  expect(lensOf(view)).toBeCloseTo(24, 6)
+  expect(nextLens(view, -1)).toBe(20)
+  expect(nextLens(view, 1)).toBe(28)
+  const widest = { ...view, camera: { ...CAMERA, fov: fovOf(14, view) } }
+  expect(nextLens(widest, -1)).toBeNull()
 })

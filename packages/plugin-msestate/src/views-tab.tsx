@@ -9,9 +9,12 @@ import { useStep } from './use-step'
 import { Viewer } from './viewer'
 import {
   addView,
+  changeLens,
   changeView,
   goToView,
+  lensOf,
   listViews,
+  nextLens,
   reframeView,
   shootViews,
   type View,
@@ -80,6 +83,7 @@ function ViewCard({
   onDelete,
   onPhoto,
   onOpen,
+  onLens,
 }: {
   sceneId: string
   view: View
@@ -90,6 +94,7 @@ function ViewCard({
   onDelete: () => void
   onPhoto: () => void
   onOpen: () => void
+  onLens: (mm: number) => void
 }) {
   const [name, setName] = useState(view.name)
   const [deleting, setDeleting] = useState(false)
@@ -133,6 +138,26 @@ function ViewCard({
           <span className="shrink-0 text-muted-foreground text-xs tabular-nums">
             {when(view.captured_at)}
           </span>
+        </div>
+        <div className="flex items-center gap-1 text-xs">
+          <span className="text-muted-foreground tabular-nums">
+            Obiettivo {Math.round(lensOf(view))} mm
+          </span>
+          {([-1, 1] as const).map((by) => {
+            const mm = nextLens(view, by)
+            return (
+              <button
+                className={SMALL}
+                disabled={busy || mm === null}
+                key={by}
+                onClick={() => mm !== null && onLens(mm)}
+                title={mm === null ? undefined : `Rifai la vista con un ${mm} mm`}
+                type="button"
+              >
+                {by < 0 ? 'Più largo' : 'Più stretto'}
+              </button>
+            )
+          })}
         </div>
         <div className="flex flex-wrap gap-1">
           <button className={SMALL} disabled={busy} onClick={() => goToView(view)} type="button">
@@ -237,6 +262,12 @@ export function ViewsTab({ projectId, sceneId, hash, views, onViews, onPhoto }: 
           key={view.id}
           onDelete={() =>
             act('Elimino…', () => changeView(sceneId, { action: 'delete', id: view.id }))
+          }
+          onLens={(mm) =>
+            projectId &&
+            act(`Rifaccio la vista con un ${mm} mm…`, () =>
+              changeLens(projectId, sceneId, view, mm),
+            )
           }
           onOpen={() => setOpen(index)}
           onPhoto={() => onPhoto(view)}

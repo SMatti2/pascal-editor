@@ -64,9 +64,20 @@ export async function addView(projectId: string, sceneId: string, name: string) 
   return changeView(sceneId, { action: 'add', name, capture: capture.id })
 }
 
-/** A new angle for `view`: what the viewport shows now. */
+/**
+ * A new angle for `view`: the viewport's camera now, shot at the view's own size so a reframed
+ * view keeps its frame (the viewport's shape changes with the window).
+ */
 export async function reframeView(projectId: string, sceneId: string, view: View) {
-  const capture = await captureCurrent(projectId, sceneId)
+  const scene = await stampScene(sceneId)
+  const hidden = hiddenLevels()
+  const { camera } = await requestFrame(projectId)
+  if (!camera) throw new Error('L’editor non ha restituito la camera')
+  const frame = await requestFrame(projectId, {
+    pose: poseOf(camera),
+    size: { w: view.width, h: view.height },
+  })
+  const capture = await saveCapture({ blob: frame.blob, camera }, scene, hidden)
   return changeView(sceneId, { action: 'shoot', id: view.id, capture: capture.id })
 }
 
@@ -82,6 +93,43 @@ async function shootView(projectId: string, sceneId: string, view: View) {
     scene,
     view.hidden_levels,
   )
+  return changeView(sceneId, { action: 'shoot', id: view.id, capture: capture.id })
+}
+
+/* The lens, as a photographer names it: the full-frame focal length (36 mm wide sensor) giving
+   the view's horizontal angle. The camera keeps a vertical field of view; the shot's shape links them. */
+export const LENSES = [14, 16, 18, 20, 24, 28, 35, 50]
+
+/** The view's lens in millimetres. */
+export function lensOf(view: Pick<View, 'camera' | 'width' | 'height'>): number {
+  const half = ((view.camera.fov ?? 50) * Math.PI) / 360
+  return 18 / (Math.tan(half) * (view.width / view.height))
+}
+
+/** The vertical field of view, in degrees, that a `mm` lens gives at the view's shape. */
+export function fovOf(mm: number, view: Pick<View, 'width' | 'height'>): number {
+  return (360 / Math.PI) * Math.atan(18 / (mm * (view.width / view.height)))
+}
+
+/** The next lens in LENSES wider (−1) or narrower (+1) than the view's; null at the end of the list. */
+export function nextLens(
+  view: Pick<View, 'camera' | 'width' | 'height'>,
+  by: -1 | 1,
+): number | null {
+  const mm = lensOf(view)
+  const next = by < 0 ? LENSES.filter((l) => l < mm - 0.5).at(-1) : LENSES.find((l) => l > mm + 0.5)
+  return next ?? null
+}
+
+/** `view` shot again from the same place with a `mm` lens, at its own size. */
+export async function changeLens(projectId: string, sceneId: string, view: View, mm: number) {
+  const scene = await stampScene(sceneId)
+  const camera = { ...view.camera, fov: fovOf(mm, view) }
+  const frame = await requestFrame(projectId, {
+    pose: poseOf(camera),
+    size: { w: view.width, h: view.height },
+  })
+  const capture = await saveCapture({ blob: frame.blob, camera }, scene, view.hidden_levels)
   return changeView(sceneId, { action: 'shoot', id: view.id, capture: capture.id })
 }
 
