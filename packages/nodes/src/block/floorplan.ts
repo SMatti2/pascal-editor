@@ -6,9 +6,9 @@ import {
   type GeometryContext,
   getBlockFaceNormal,
   pointInPolygon2D,
+  readFloorplanContext,
   unionPolygons,
 } from '@pascal-app/core'
-import { readFloorplanContext } from '@pascal-app/editor'
 import { convexHull } from '../shared/convex-hull'
 
 /**
