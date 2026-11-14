@@ -34,7 +34,7 @@ function Tabs({ sceneId }: { sceneId: string }) {
   const { views, setViews, error } = useViews(sceneId)
   const hash = useSceneHash()
   return (
-    <div className="flex flex-col gap-4 p-4 text-sidebar-foreground">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 text-sidebar-foreground">
       <h2 className="font-semibold text-base">Foto</h2>
       <SegmentedControl onChange={setTab} options={TABS} value={tab} />
       <div hidden={tab !== 'luogo'}>
