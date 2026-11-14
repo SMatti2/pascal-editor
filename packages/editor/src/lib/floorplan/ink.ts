@@ -1,17 +1,22 @@
 import type { FloorplanGeometry } from '@pascal-app/core'
 
 /**
- * msestate: the live 2D plan in plan ink, as an architecture studio draws it.
- * Kinds paint themselves in Pascal's slate greys; this maps every grey to a
- * neutral one: dark fills (what the plan cuts) become black poché, light fills
- * become white, edges become black, furniture edges a thinner grey. Coloured
- * paint (selection, hover, drafts, handles) is left as it is, so editing still
- * shows what it acts on. Zone outlines go: the room labels name the rooms.
+ * msestate: the live 2D plan as a presentation plan (2026-11-12): grey paper,
+ * lighter floors, the cut in mid grey with a dark edge, furniture as light shapes
+ * with fine grey lines. Kinds paint themselves in Pascal's slate greys; this maps
+ * every grey to a neutral one: dark fills (what the plan cuts) become the cut grey,
+ * light fills become the floor grey, edges become ink. Coloured paint (selection,
+ * hover, drafts, handles) is left as it is, so editing still shows what it acts on.
+ * Zone outlines go: the room labels name the rooms.
  */
 
-const INK = '#000000'
-const FURNITURE_INK = '#5c5c5c'
-const PAPER = '#ffffff'
+const INK = '#2b2b2b'
+const CUT = '#9a9a9a'
+const FURNITURE_INK = '#4a4a4a'
+/** Floors, door and window masks, label halos. The sheet itself is the panel's `surface`. */
+const FLOOR = '#e4e4e4'
+/** Translucent, so a piece's parts stacked in any order never hide each other's lines. */
+const FURNITURE_FILL = 'rgba(255, 255, 255, 0.6)'
 /** Below this chroma (max − min channel, 0–1) a colour counts as a grey: Pascal's slates are 0.09–0.14, its accents 0.33 and up. */
 const GREY_CHROMA = 0.2
 
@@ -56,22 +61,21 @@ export function inkFill(type: string, fill: string | undefined): string | undefi
   if (!c) return fill
   const [l, s] = lightnessChroma(c)
   if (s >= GREY_CHROMA) return fill
-  if (FURNITURE.has(type)) return withAlpha(PAPER, c.a)
-  return withAlpha(l > 0.6 ? PAPER : INK, c.a)
+  if (FURNITURE.has(type)) return FURNITURE_FILL
+  return withAlpha(l > 0.6 ? FLOOR : CUT, c.a)
 }
 
 /**
- * A grey wash (a slab, a block below the cut, any furniture or imported mesh): paper on
- * paper shows nothing and, stacked over a cut block (an IFC's finish layers), greys it,
- * so it goes transparent and keeps only its hit area. Pure white stays on everything
- * else: doors and windows mask the wall's gap with it.
+ * A grey wash (a block below the cut, a ceiling): stacked over a cut block (an IFC's
+ * finish layers) it would hide the cut, so it goes transparent and keeps only its hit
+ * area. Slabs are the floor and stay; furniture has its own translucent fill. Pure
+ * white stays on everything else: doors and windows mask the wall's gap with it.
  */
 export function isWash(type: string, fill: string | undefined): boolean {
   const c = fill ? parseColor(fill) : null
   if (!c) return false
   const [l, s] = lightnessChroma(c)
-  if (s >= GREY_CHROMA) return false
-  if (FURNITURE.has(type)) return true
+  if (s >= GREY_CHROMA || FURNITURE.has(type) || type === 'slab') return false
   return l > 0.6 && !(c.r === 255 && c.g === 255 && c.b === 255)
 }
 
@@ -81,7 +85,7 @@ export function inkStroke(type: string, stroke: string | undefined): string | un
   const [l, s] = lightnessChroma(c)
   if (s >= GREY_CHROMA) return stroke
   // light strokes are halos around labels and handles: keep them light
-  if (l > 0.85) return withAlpha(PAPER, c.a)
+  if (l > 0.85) return withAlpha(FLOOR, c.a)
   // mid greys are dashed overheads and secondary lines: keep them secondary
   const ink = FURNITURE.has(type) || l > 0.55 ? FURNITURE_INK : INK
   return withAlpha(ink, c.a)
