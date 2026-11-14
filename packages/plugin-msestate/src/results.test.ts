@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { renderTile, requestTiles } from './results'
+import { requestTiles } from './results'
 
 const request = {
   id: 'r1',
@@ -11,33 +11,16 @@ const request = {
 }
 
 test('an Antigravity request waits as one tile, then each attempt is its own photo', () => {
-  expect(requestTiles(request)).toMatchObject([{ status: 'waiting', details: 'luce calda' }])
+  const [waiting] = requestTiles(request)
+  expect(waiting).toMatchObject({ key: 'r1', details: 'luce calda' })
+  expect(waiting?.image).toBeUndefined()
   const done = requestTiles({ ...request, results: ['x/result.png', 'x/result-02.png'] })
-  expect(done.map((tile) => [tile.status, tile.image])).toEqual([
-    ['done', 'x/result.png'],
-    ['done', 'x/result-02.png'],
-  ])
+  expect(done.map((tile) => tile.image)).toEqual(['x/result.png', 'x/result-02.png'])
 })
 
-test('a Blender render says its light in words; only a failure offers a retry', () => {
-  const job = {
-    id: 'j1',
-    created_at: '2026-10-24T08:00:00Z',
-    capture: 'c1',
-    width: 1920,
-    height: 1080,
-    samples: 128,
-    sun_at: '2026-06-21T10:00',
-    status: 'running' as const,
-    result: null,
-  }
-  expect(renderTile(job)).toMatchObject({
-    status: 'running',
-    details: 'sole del 2026-06-21 alle 10:00 · 1920×1080',
-    retry: undefined,
-  })
-  expect(renderTile({ ...job, status: 'failed', error: 'import failed' }).retry).toEqual({
-    capture: 'c1',
-    sunAt: '2026-06-21T10:00',
-  })
+test('a long brief is cut under the photo and kept whole in the tooltip', () => {
+  const brief = 'a'.repeat(60)
+  const [tile] = requestTiles({ ...request, appearance: brief })
+  expect(tile?.summary).toBe(`${'a'.repeat(39)}…`)
+  expect(tile?.details).toBe(brief)
 })

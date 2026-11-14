@@ -6,13 +6,13 @@ import { NOTE_KINDS } from './notes'
 const CAMERA_PATH =
   'M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3zM12 17a4 4 0 1 1 0-8 4 4 0 0 1 0 8z'
 
-/** Foto: the current view made a photo with Antigravity or Blender, every photo of the project below. */
+/** Foto: the place, the references, named views on the model, and views made realistic photos. */
 export const fotoHostPanel: EditorHostPanel = {
   id: 'msestate:studio', // kept from the Studio panel it replaces, so projects keep it installed
   label: 'Foto',
   icon: { kind: 'svg', viewBox: '0 0 24 24', path: CAMERA_PATH },
   component: () => import('./foto-panel'),
-  description: 'Foto realistiche della vista corrente, con Antigravity o Blender.',
+  description: 'Foto del luogo, riferimenti, viste del modello e foto realistiche.',
   creator: { name: 'MS Estate' },
 }
 

@@ -2,7 +2,7 @@ import { Check, Loader2, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { errorMessage, thumbnailUrl } from './http'
 import type { ReferenceChoice } from './requests'
-import { listReferenceImages, type SourceImage, uploadReference } from './sources'
+import { listReferenceImages, type SourceImage, uploadSourceImage } from './sources'
 
 export const REFERENCES_MAX = 8
 
@@ -37,7 +37,7 @@ export function ReferencePicker({ sceneId, chosen, onChange }: Props) {
     if (!file) return
     setUploading(true)
     try {
-      const image = await uploadReference(sceneId, file)
+      const image = await uploadSourceImage(sceneId, file)
       setImages((list) => [...list.filter((i) => i.relative !== image.relative), image])
       if (!full) onChange([...chosen, { relative: image.relative, role: 'appearance' }])
       setError(null)

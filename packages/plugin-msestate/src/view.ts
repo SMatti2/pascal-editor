@@ -1,15 +1,25 @@
-import { emitter, type LevelNode, type SnapshotCapturedEvent, useScene } from '@pascal-app/core'
+import {
+  emitter,
+  type LevelNode,
+  type SnapshotCapturedEvent,
+  type SnapshotCapturePose,
+  useScene,
+} from '@pascal-app/core'
 import { resolveLevelVisibility, useViewer } from '@pascal-app/viewer'
 
 /* What the editor shows right now: the frame, and the levels it leaves out. */
 
 const FRAME_TIMEOUT_MS = 30_000
 
+/** A stored camera to shoot from, and the frame's size in pixels. */
+export type Shot = { pose: SnapshotCapturePose; size: { w: number; h: number } }
+
 /**
- * One frame of the current view, the whole viewport (the only capture that reports its camera);
- * Pascal stores nothing (ephemeral).
+ * One frame, Pascal storing nothing (ephemeral): the whole viewport as the user sees it (the only
+ * capture that reports its camera), or with `shot` that camera at that size, the user's own camera
+ * left where it is.
  */
-export function requestFrame(projectId: string): Promise<SnapshotCapturedEvent> {
+export function requestFrame(projectId: string, shot?: Shot): Promise<SnapshotCapturedEvent> {
   const requestId = crypto.randomUUID()
   return new Promise((resolve, reject) => {
     const done = () => {
@@ -36,8 +46,10 @@ export function requestFrame(projectId: string): Promise<SnapshotCapturedEvent> 
     emitter.emit('camera-controls:generate-thumbnail', {
       projectId,
       requestId,
-      captureMode: 'viewport',
       ephemeral: true,
+      ...(shot
+        ? { captureMode: 'standard', cameraPose: shot.pose, standardSize: shot.size }
+        : { captureMode: 'viewport' }),
     })
   })
 }

@@ -17,7 +17,9 @@ export function sceneIdFromPath(pathname: string): string | null {
   return match ? decodeURIComponent(match[1] as string) : null
 }
 
-async function sha256(text: string): Promise<string> {
+/** The hash of the scene graph as rendered: a capture of an older graph is out of date. */
+export async function sceneHash(nodes: object): Promise<string> {
+  const text = JSON.stringify(nodes)
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
 }
@@ -28,7 +30,7 @@ export async function stampScene(sceneId: string): Promise<SceneStamp> {
   const version = Number((response.headers.get('etag') ?? '').replaceAll('"', ''))
   if (!response.ok || !Number.isInteger(version))
     throw new Error(`Versione della scena ${sceneId} non disponibile (${response.status})`)
-  return { id: sceneId, version, sha256: await sha256(JSON.stringify(useScene.getState().nodes)) }
+  return { id: sceneId, version, sha256: await sceneHash(useScene.getState().nodes) }
 }
 
 /** Send the frame to our server, which keeps it with the scene stamp (same origin, behind the proxy). */
