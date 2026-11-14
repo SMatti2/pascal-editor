@@ -54,7 +54,7 @@ export default function PiantaPanel() {
     : []
 
   return (
-    <div className="flex flex-col gap-4 p-4 text-sidebar-foreground">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 text-sidebar-foreground">
       <div className="flex flex-col gap-1">
         <h2 className="font-semibold text-base">Pianta</h2>
         <p className="text-muted-foreground text-xs">

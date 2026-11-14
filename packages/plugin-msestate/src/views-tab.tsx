@@ -4,8 +4,9 @@ import { useScene } from '@pascal-app/core'
 import { useCallback, useEffect, useState } from 'react'
 import { sceneHash } from './capture'
 import { errorMessage, thumbnailUrl } from './http'
-import { FIELD, PRIMARY, SMALL, when } from './ui'
+import { FIELD, FOCUS, PRIMARY, SMALL, when } from './ui'
 import { useStep } from './use-step'
+import { Viewer } from './viewer'
 import {
   addView,
   changeView,
@@ -78,6 +79,7 @@ function ViewCard({
   onRename,
   onDelete,
   onPhoto,
+  onOpen,
 }: {
   sceneId: string
   view: View
@@ -87,6 +89,7 @@ function ViewCard({
   onRename: (name: string) => void
   onDelete: () => void
   onPhoto: () => void
+  onOpen: () => void
 }) {
   const [name, setName] = useState(view.name)
   const [deleting, setDeleting] = useState(false)
@@ -98,7 +101,12 @@ function ViewCard({
   }
   return (
     <figure className="flex flex-col gap-1.5">
-      <div className="relative overflow-hidden rounded-md ring-1 ring-border/50">
+      <button
+        aria-label={`Apri a tutto schermo: ${view.name}`}
+        className={`relative block cursor-zoom-in overflow-hidden rounded-md ring-1 ring-border/50 hover:ring-border ${FOCUS}`}
+        onClick={onOpen}
+        type="button"
+      >
         <img
           alt=""
           className="w-full object-cover"
@@ -110,7 +118,7 @@ function ViewCard({
             Da aggiornare
           </span>
         )}
-      </div>
+      </button>
       <figcaption className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <input
@@ -163,6 +171,7 @@ function ViewCard({
  */
 export function ViewsTab({ projectId, sceneId, hash, views, onViews, onPhoto }: Props) {
   const [name, setName] = useState('')
+  const [open, setOpen] = useState<number | null>(null)
   const { busy, run, line } = useStep()
   const stale = staleViews(views, hash)
   const act = (label: string, work: () => Promise<View[]>, done?: string) =>
@@ -222,13 +231,14 @@ export function ViewsTab({ projectId, sceneId, hash, views, onViews, onPhoto }: 
       )}
       {line}
 
-      {views.map((view) => (
+      {views.map((view, index) => (
         <ViewCard
           busy={busy}
           key={view.id}
           onDelete={() =>
             act('Elimino…', () => changeView(sceneId, { action: 'delete', id: view.id }))
           }
+          onOpen={() => setOpen(index)}
           onPhoto={() => onPhoto(view)}
           onReframe={() =>
             projectId && act('Salvo l’inquadratura…', () => reframeView(projectId, sceneId, view))
@@ -246,6 +256,15 @@ export function ViewsTab({ projectId, sceneId, hash, views, onViews, onPhoto }: 
       {views.length === 0 && (
         <p className="text-muted-foreground text-xs">Nessuna vista salvata.</p>
       )}
+      <Viewer
+        index={open}
+        items={views.map((view) => ({
+          src: thumbnailUrl(sceneId, view.image, 1920),
+          alt: view.name,
+          caption: `${view.name} · ${when(view.captured_at)}`,
+        }))}
+        onIndex={setOpen}
+      />
     </div>
   )
 }
