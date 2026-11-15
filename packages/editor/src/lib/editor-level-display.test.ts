@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { BuildingNode, LevelNode, useScene } from '@pascal-app/core'
 import { useViewer } from '@pascal-app/viewer'
 import useEditor, { type CaptureMode } from '../store/use-editor'
-import { showsWholeBuilding } from './editor-level-display'
+import { hidesLevelsAbove, showsWholeBuilding } from './editor-level-display'
 
 const building = BuildingNode.parse({ id: 'building_capture', children: [] })
 const levels = [0, 1, 2].map((level) =>
@@ -93,4 +93,11 @@ describe('capture level picker', () => {
       }),
     ).toBe(false)
   })
+})
+
+test('stacked hides the levels above the one being edited; exploded and solo do not', () => {
+  expect(hidesLevelsAbove('stacked')).toBe(true)
+  expect(hidesLevelsAbove('manual')).toBe(true)
+  expect(hidesLevelsAbove('exploded')).toBe(false)
+  expect(hidesLevelsAbove('solo')).toBe(false)
 })

@@ -20,11 +20,17 @@ export function showsWholeBuilding(state: {
 }
 
 /**
- * The editor's one level display: stacked, with every level above the
- * selected one hidden — the selected level and the ones below stay, so the
- * storey being worked on is never covered. There is no Stack / Exploded /
- * Solo choice while editing; a mode left over from the viewer (or persisted
- * by an older build) is set back to stacked, and kept there.
+ * Whether the editor hides the levels above the selected one in a level mode: stacked hides
+ * them, so the storey being worked on is never covered; exploded pulls every level apart and
+ * shows them all; solo shows the selected level alone.
+ */
+export const hidesLevelsAbove = (levelMode: string) =>
+  levelMode === 'stacked' || levelMode === 'manual'
+
+/**
+ * The editor's level display: the toolbar's level mode (Stack / Exploded / Solo) holds while
+ * editing. Stacked hides every level above the selected one; a mode persisted by an older
+ * build ('manual') opens as stacked.
  *
  * The walkthrough shows the whole building, so the upper levels come back
  * while it is on; Preview hands the display to the viewer's own floor rule
@@ -39,13 +45,13 @@ export function useEditorLevelDisplay(showWholeBuilding: boolean) {
   useGroundWindowBox(!sitePhase)
   useEffect(() => {
     if (showWholeBuilding) return
-    const keepStacked = (mode: string) => {
-      if (mode !== 'stacked') useViewer.getState().setLevelMode('stacked')
-    }
-    useViewer.setState({ hideLevelsAboveSelection: true })
-    keepStacked(useViewer.getState().levelMode)
+    const viewer = useViewer.getState()
+    if (viewer.levelMode === 'manual') viewer.setLevelMode('stacked')
+    const follow = (mode: string) =>
+      useViewer.setState({ hideLevelsAboveSelection: hidesLevelsAbove(mode) })
+    follow(useViewer.getState().levelMode)
     const unsubscribe = useViewer.subscribe((state, previous) => {
-      if (state.levelMode !== previous.levelMode) keepStacked(state.levelMode)
+      if (state.levelMode !== previous.levelMode) follow(state.levelMode)
     })
     return () => {
       unsubscribe()
