@@ -69,7 +69,8 @@ function describeRoomGeometry(
       ...new Set(room.spans.filter((span) => span.kind === 'wall').map((span) => span.boundaryId)),
     ],
     clearPolygon,
-    area: area([{ outer: zone.polygon, holes: zone.holes }]),
+    // The floor inside the wall faces: a room's polygon runs on the wall centrelines.
+    area: area(clearPolygon),
     hitPolygon: [{ outer: room.polygon, holes: room.holes }],
     mezzanine: null,
   }
@@ -164,7 +165,7 @@ function describeRoom(
     ...geometry,
     geometry,
     name: zone.name || 'Room',
-    area: area([{ outer: zone.polygon, holes: zone.holes }]),
+    area: geometry.area,
     zoneId: zone.id,
     slabId: slab?.id ?? null,
     slabName: slab ? slab.name || 'Slab' : null,
