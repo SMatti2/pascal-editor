@@ -1,24 +1,14 @@
 'use client'
 
-import { useScene } from '@pascal-app/core'
+import { type SnapshotFrameCamera, useScene } from '@pascal-app/core'
 import { useCallback, useEffect, useState } from 'react'
 import { sceneHash } from './capture'
+import { FrameEditor } from './frame-editor'
 import { errorMessage, thumbnailUrl } from './http'
 import { FIELD, FOCUS, PRIMARY, SMALL, when } from './ui'
 import { useStep } from './use-step'
 import { Viewer } from './viewer'
-import {
-  addView,
-  changeLens,
-  changeView,
-  goToView,
-  lensOf,
-  listViews,
-  nextLens,
-  reframeView,
-  shootViews,
-  type View,
-} from './views'
+import { addView, changeView, lensOf, listViews, reframeView, shootViews, type View } from './views'
 
 const HASH_DELAY_MS = 800 // the scene is hashed once edits pause, not on every change
 
@@ -73,62 +63,33 @@ type Props = {
   onPhoto: (view: View) => void
 }
 
-/** The view's lens and the buttons that shoot it one lens wider or narrower. */
-function LensControl({
-  view,
-  busy,
-  onLens,
-}: {
-  view: View
-  busy: boolean
-  onLens: (mm: number) => void
-}) {
-  return (
-    <div className="flex items-center gap-1 text-xs">
-      <span className="text-muted-foreground tabular-nums">
-        Obiettivo {Math.round(lensOf(view))} mm
-      </span>
-      {([-1, 1] as const).map((by) => {
-        const mm = nextLens(view, by)
-        return (
-          <button
-            className={SMALL}
-            disabled={busy || mm === null}
-            key={by}
-            onClick={() => mm !== null && onLens(mm)}
-            title={mm === null ? undefined : `Rifai la vista con un ${mm} mm`}
-            type="button"
-          >
-            {by < 0 ? 'Più largo' : 'Più stretto'}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 function ViewCard({
   sceneId,
   view,
   stale,
   busy,
+  editing,
+  onEdit,
   onReframe,
+  onCancel,
   onRename,
   onDelete,
   onPhoto,
   onOpen,
-  onLens,
 }: {
   sceneId: string
   view: View
   stale: boolean
   busy: boolean
-  onReframe: () => void
+  /** null: no view in edit; true: this one. */
+  editing: boolean | null
+  onEdit: () => void
+  onReframe: (camera: SnapshotFrameCamera) => void
+  onCancel: () => void
   onRename: (name: string) => void
   onDelete: () => void
   onPhoto: () => void
   onOpen: () => void
-  onLens: (mm: number) => void
 }) {
   const [name, setName] = useState(view.name)
   const [deleting, setDeleting] = useState(false)
@@ -173,33 +134,38 @@ function ViewCard({
             {when(view.captured_at)}
           </span>
         </div>
-        <LensControl busy={busy} onLens={onLens} view={view} />
-        <div className="flex flex-wrap gap-1">
-          <button className={SMALL} disabled={busy} onClick={() => goToView(view)} type="button">
-            Vai alla vista
-          </button>
-          <button
-            className={SMALL}
-            disabled={busy}
-            onClick={onReframe}
-            title="Usa l’inquadratura che vedi adesso nel 3D"
-            type="button"
-          >
-            Nuova inquadratura
-          </button>
-          <button className={SMALL} disabled={busy} onClick={onPhoto} type="button">
-            Foto realistica
-          </button>
-          <button
-            className={`${SMALL} ${deleting ? 'text-destructive' : 'text-muted-foreground'}`}
-            disabled={busy}
-            onBlur={() => setDeleting(false)}
-            onClick={() => (deleting ? onDelete() : setDeleting(true))}
-            type="button"
-          >
-            {deleting ? 'Conferma elimina' : 'Elimina'}
-          </button>
-        </div>
+        {editing ? (
+          <FrameEditor busy={busy} onCancel={onCancel} onSave={onReframe} view={view} />
+        ) : (
+          <>
+            <span className="text-muted-foreground text-xs tabular-nums">
+              Obiettivo {Math.round(lensOf(view))} mm
+            </span>
+            <div className="flex flex-wrap gap-1">
+              <button
+                className={SMALL}
+                disabled={busy || editing === false}
+                onClick={onEdit}
+                title="Sposta la camera e cambia l’obiettivo guardando il riquadro della foto"
+                type="button"
+              >
+                Modifica inquadratura
+              </button>
+              <button className={SMALL} disabled={busy} onClick={onPhoto} type="button">
+                Foto realistica
+              </button>
+              <button
+                className={`${SMALL} ${deleting ? 'text-destructive' : 'text-muted-foreground'}`}
+                disabled={busy}
+                onBlur={() => setDeleting(false)}
+                onClick={() => (deleting ? onDelete() : setDeleting(true))}
+                type="button"
+              >
+                {deleting ? 'Conferma elimina' : 'Elimina'}
+              </button>
+            </div>
+          </>
+        )}
       </figcaption>
     </figure>
   )
@@ -212,6 +178,7 @@ function ViewCard({
 export function ViewsTab({ projectId, sceneId, hash, views, onViews, onPhoto }: Props) {
   const [name, setName] = useState('')
   const [open, setOpen] = useState<number | null>(null)
+  const [editing, setEditing] = useState<string | null>(null)
   const { busy, run, line } = useStep()
   const stale = staleViews(views, hash)
   const act = (label: string, work: () => Promise<View[]>, done?: string) =>
@@ -278,16 +245,18 @@ export function ViewsTab({ projectId, sceneId, hash, views, onViews, onPhoto }: 
           onDelete={() =>
             act('Elimino…', () => changeView(sceneId, { action: 'delete', id: view.id }))
           }
-          onLens={(mm) =>
-            projectId &&
-            act(`Rifaccio la vista con un ${mm} mm…`, () =>
-              changeLens(projectId, sceneId, view, mm),
-            )
-          }
+          editing={editing === null ? null : editing === view.id}
+          onCancel={() => setEditing(null)}
+          onEdit={() => setEditing(view.id)}
           onOpen={() => setOpen(index)}
           onPhoto={() => onPhoto(view)}
-          onReframe={() =>
-            projectId && act('Salvo l’inquadratura…', () => reframeView(projectId, sceneId, view))
+          onReframe={(camera) =>
+            projectId &&
+            act('Salvo l’inquadratura…', async () => {
+              const after = await reframeView(projectId, sceneId, view, camera)
+              setEditing(null)
+              return after
+            })
           }
           onRename={(next) =>
             act('Rinomino…', () =>

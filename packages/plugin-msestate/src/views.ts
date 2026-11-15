@@ -90,14 +90,15 @@ async function shootFrom(
 }
 
 /**
- * A new angle for `view`: the viewport's camera now, shot at the view's own size so a reframed
- * view keeps its frame (the viewport's shape changes with the window).
+ * A new angle for `view`: `camera`, shot at the view's own size with the levels the viewport
+ * shows now (the user framed it looking at them).
  */
-export async function reframeView(projectId: string, sceneId: string, view: View) {
-  const hidden = hiddenLevels()
-  const { camera } = await viewportFrame(projectId)
-  return shootFrom(projectId, sceneId, view, camera, hidden)
-}
+export const reframeView = (
+  projectId: string,
+  sceneId: string,
+  view: View,
+  camera: SnapshotFrameCamera,
+) => shootFrom(projectId, sceneId, view, camera, hiddenLevels())
 
 /** `view` shot again from its own camera. */
 const shootView = (projectId: string, sceneId: string, view: View) =>
@@ -105,10 +106,9 @@ const shootView = (projectId: string, sceneId: string, view: View) =>
 
 /* The lens, as a photographer names it: the full-frame focal length giving the view's horizontal
    angle. The camera keeps a vertical field of view; the shot's shape links the two. */
-export const LENSES = [14, 16, 18, 20, 24, 28, 35, 50]
+export const LENSES = [14, 16, 18, 20, 24, 28, 35, 50] // the marks on the lens slider
 const HALF_SENSOR_MM = 18 // a full-frame sensor is 36 mm wide
 const DEFAULT_FOV = 50 // the editor's perspective camera
-const LENS_TOLERANCE_MM = 0.5 // a lens this close to the view's counts as the same
 
 type Frame = Pick<View, 'width' | 'height'>
 const aspectOf = (frame: Frame) => frame.width / frame.height
@@ -123,20 +123,6 @@ export function lensOf(view: Frame & Pick<View, 'camera'>): number {
 export function fovOf(mm: number, frame: Frame): number {
   return (360 / Math.PI) * Math.atan(HALF_SENSOR_MM / (mm * aspectOf(frame)))
 }
-
-/** The next lens in LENSES wider (−1) or narrower (+1) than the view's; null at the end of the list. */
-export function nextLens(view: Frame & Pick<View, 'camera'>, by: -1 | 1): number | null {
-  const mm = lensOf(view)
-  const next =
-    by < 0
-      ? LENSES.filter((lens) => lens < mm - LENS_TOLERANCE_MM).at(-1)
-      : LENSES.find((lens) => lens > mm + LENS_TOLERANCE_MM)
-  return next ?? null
-}
-
-/** `view` shot again from the same place with a `mm` lens. */
-export const changeLens = (projectId: string, sceneId: string, view: View, mm: number) =>
-  shootFrom(projectId, sceneId, view, { ...view.camera, fov: fovOf(mm, view) }, view.hidden_levels)
 
 const SESSION = 'msestate:viste'
 
@@ -153,27 +139,4 @@ export async function shootViews(projectId: string, sceneId: string, views: View
     emitter.emit('camera-controls:capture-session', { owner: SESSION, active: false })
   }
   return after
-}
-
-/** Show `view`'s camera in the viewport. */
-export function goToView(view: View) {
-  const { position, quaternion, fov } = poseOf(view.camera)
-  emitter.emit('camera-controls:apply-pose', {
-    position,
-    target: targetOf(position, quaternion),
-    projection: 'perspective',
-    fov,
-  })
-}
-
-/** A point 1 m ahead of the camera: three.js cameras look down their local −Z. */
-export function targetOf(
-  [x, y, z]: [number, number, number],
-  [qx, qy, qz, qw]: [number, number, number, number],
-): [number, number, number] {
-  // −Z rotated by the quaternion
-  const fx = -2 * (qx * qz + qw * qy)
-  const fy = -2 * (qy * qz - qw * qx)
-  const fz = -(1 - 2 * (qx * qx + qy * qy))
-  return [x + fx, y + fy, z + fz]
 }

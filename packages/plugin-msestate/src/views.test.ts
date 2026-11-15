@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'bun:test'
 import { emitter, type ThumbnailGenerateEvent } from '@pascal-app/core'
-import { fovOf, lensOf, nextLens, poseOf, shootViews, targetOf, type View } from './views'
+import { fovOf, lensOf, poseOf, shootViews, type View } from './views'
 
 const realFetch = globalThis.fetch
 afterEach(() => {
@@ -31,14 +31,6 @@ test('only a perspective camera can be shot again', () => {
   expect(() =>
     poseOf({ ...CAMERA, projection: 'orthographic', fov: undefined, viewHeight: 8 }),
   ).toThrow(/prospettica/)
-})
-
-test('a camera looks down its own −Z', () => {
-  expect(targetOf([1, 2, 3], [0, 0, 0, 1])).toEqual([1, 2, 2])
-  // turned 90° left about Y: it looks down −X
-  const half = Math.SQRT1_2
-  const [x, y, z] = targetOf([0, 0, 0], [0, half, 0, half])
-  expect([x, y, z].map((v) => Math.round(v * 1e9) / 1e9)).toEqual([-1, 0, 0])
 })
 
 test('a view is shot again from its own camera and size, inside one capture session', async () => {
@@ -92,8 +84,8 @@ test('a lens is the full-frame focal length of the horizontal angle of the view'
     height: 1024,
   }
   expect(lensOf(view)).toBeCloseTo(24, 6)
-  expect(nextLens(view, -1)).toBe(20)
-  expect(nextLens(view, 1)).toBe(28)
-  const widest = { ...view, camera: { ...CAMERA, fov: fovOf(14, view) } }
-  expect(nextLens(widest, -1)).toBeNull()
+  // across a 36 mm wide frame a 24 mm lens sees 2·atan(18 / 24) = 73.74°
+  const across = 2 * Math.atan(Math.tan((view.camera.fov * Math.PI) / 360) * 1.5)
+  expect((across * 180) / Math.PI).toBeCloseTo(73.74, 2)
+  expect(lensOf({ ...view, camera: { ...CAMERA, fov: fovOf(14, view) } })).toBeCloseTo(14, 6)
 })
