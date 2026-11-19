@@ -248,7 +248,8 @@ describe('room hit resolution', () => {
       ceilingId: ceiling.id,
       zoneId: zone.id,
     })
-    expect(room.area).toBe(16)
+    // The floor clear of the 0.2 m walls on the centrelines: 3.8 × 3.8.
+    expect(room.area).toBeCloseTo(14.44)
     expect(room.boundaryWallIds).toHaveLength(4)
     expect(room.key).toEqual({ levelId, zoneId: zone.id })
   })
@@ -293,7 +294,8 @@ describe('room hit resolution', () => {
     )
     const records = new RoomSelectionIndex(levelId).update(nodes)
     const outer = records.find((room) => room.holes.length === 1)!
-    expect(outer.area).toBe(12)
+    // Clear of the walls, with the hole still taken out.
+    expect(outer.area).toBeCloseTo(9.6)
     expect(outer.key).toEqual({ levelId, zoneId: outer.zoneId })
     expect(nodes[outer.zoneId]?.type).toBe('zone')
   })

@@ -906,14 +906,11 @@ test('room label anchors follow the kept volume on every axis and stay unchanged
   ).toBeNull()
 })
 
-// Pins detected room entries and counts before this change.
-test.each([
-  [0, 0],
-  [2, 0],
-  [4, 16],
-])(
+// Pins detected room entries and counts before this change. The room comes from the walls, so
+// the label area is the floor clear of the 0.1 m walls (3.9 × 3.9) whatever the zone stores.
+test.each([0, 2, 4])(
   'detected room with %s stored vertices keeps the original list entry and core count',
-  async (vertices, labelArea) => {
+  async (vertices) => {
     const { WallNode } = await import('@pascal-app/core')
     const { RoomSelectionIndex } = await import('../../lib/room-selection')
     const polygon: [number, number][] = [
@@ -953,7 +950,7 @@ test.each([
           [0, 4],
         ],
         holes: [],
-        area: labelArea,
+        area: expect.closeTo(15.21),
       },
     ])
     expect(roomCounts({ nodes, rootNodeIds: [level.id] })).toMatchObject({

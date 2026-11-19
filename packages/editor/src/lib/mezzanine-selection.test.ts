@@ -99,7 +99,8 @@ describe('mezzanine selection', () => {
     const host = records.find((room) => room.zoneId === hostId)!
     const mezzanine = records.find((room) => room.zoneId === mezzanineId)!
     expect(host.mezzanine).toBeNull()
-    expect(host.area).toBeCloseTo(48, 0)
+    // The 8 × 6 m footprint less the wall strip inside the centrelines.
+    expect(host.area).toBeCloseTo(46.61, 2)
     expect(mezzanine.mezzanine).toEqual({ hostZoneId: hostId })
     expect(mezzanine.name).toBe('Mezzanine')
     expect(mezzanine.area).toBeCloseTo(8.75)
