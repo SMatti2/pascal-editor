@@ -4,6 +4,7 @@ import {
   msestatePlugin,
   notesHostPanel,
   piantaHostPanel,
+  startPlanWatch,
 } from '@msestate/pascal-plugin'
 import {
   type AnyNodeDefinition,
@@ -151,6 +152,8 @@ registerEditorHostPanel(fotoHostPanel)
 registerEditorHostPanel(piantaHostPanel)
 registerEditorHostPanel(notesHostPanel)
 extendPluginDiscovery(async () => [msestatePlugin])
+// Keeps the plan on our server in step with the open scene (packages/plugin-msestate/src/plan-watch.ts).
+startPlanWatch()
 
 loadBuiltinsSync()
 void loadExternalPlugins()

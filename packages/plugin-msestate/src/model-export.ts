@@ -46,6 +46,12 @@ async function untilBuilt(deadline: number): Promise<void> {
   }
 }
 
+/** True when the 3D view is on screen, alone or split, so the geometry is built. */
+export function showing3d(): boolean {
+  const scene = visibleScene(useEditor.getState())
+  return scene === '3d' || scene === 'split'
+}
+
 /**
  * The editor's exporter, once the scene is built. Geometry builds only while 3D is on screen, and
  * the exporter stays registered without it, so the 3D view opens for the export when it is not
@@ -55,8 +61,7 @@ async function untilBuilt(deadline: number): Promise<void> {
 async function withExporter<T>(use: (exporter: ModelExport) => Promise<T>): Promise<T> {
   const state = useEditor.getState()
   const layout = activeViewLayout(state)
-  const scene = visibleScene(state)
-  const opens3d = scene !== '3d' && scene !== 'split'
+  const opens3d = !showing3d()
   if (opens3d) state.setViewLayout(sceneLayout('3d'))
   try {
     await untilBuilt(Date.now() + BUILD_LIMIT_MS)

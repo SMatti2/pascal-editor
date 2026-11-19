@@ -62,3 +62,5 @@ export const msestatePlugin: Plugin = {
     },
   ],
 }
+
+export { startPlanWatch } from './plan-watch'
