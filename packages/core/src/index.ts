@@ -477,6 +477,7 @@ export {
 export {
   DECK_FLOOR_DROP,
   DECKING_THICKNESS,
+  isOpenAirRoom,
   isOutdoorRoom,
   isOutdoorRoomType,
   nextOutdoorRoomName,
@@ -484,6 +485,7 @@ export {
   OUTDOOR_ROOM_TYPES,
   type OutdoorRoomDefaults,
   type OutdoorRoomType,
+  openPlanRoomGroups,
   PORCH_FLOOR_DROP,
 } from './lib/outdoor-room'
 export {
@@ -580,6 +582,7 @@ export {
   roofPlanBoundsOverlap,
   roofPlanOverlapEntryOwns,
 } from './lib/roof-overlap'
+export { isRoomZone, type RoomCounts, roomCounts } from './lib/room-counts'
 export { type RoomDrawnFloor, roomDrawnFloor } from './lib/room-drawn-floor'
 export { type RoomFloorChoice, roomFloorChoices } from './lib/room-floor-choices'
 export * from './lib/room-floor-elevation'
@@ -1279,6 +1282,7 @@ export {
 export {
   DEFAULT_WALL_HEIGHT,
   DEFAULT_WALL_THICKNESS,
+  getWallJunctionClosing,
   getWallPlanFootprint,
   getWallThickness,
 } from './systems/wall/wall-footprint'
